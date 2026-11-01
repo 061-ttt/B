@@ -340,7 +340,7 @@ export class MapScene {
     const vfov = (this.camera.fov * Math.PI) / 180;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const portrait = aspect < 1;
-    const visW = v.id === 'japan' ? v.size.w * (portrait ? 0.74 : 0.85) : v.size.w * (portrait ? 0.52 : 0.95);
+    const visW = v.id === 'japan' ? v.size.w * (portrait ? 0.86 : 0.85) : v.size.w * (portrait ? 0.48 : 0.95);
     const visH = v.size.h * (v.id === 'japan' ? (portrait ? 0.6 : 0.85) : 0.9);
     const tilt = v.id === 'japan' ? 0.42 : 0.36;
     const dW = visW / 2 / Math.tan(hfov / 2);
