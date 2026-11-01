@@ -7,6 +7,7 @@ import { PLACE_BY_ID } from '../data/places';
 import { buildDepth } from './depth';
 import { pinScale, type Pin } from '../core/model';
 import { iconSvg } from '../ui/icons';
+import { photo } from '../ui/photo';
 
 export const R = 100;
 const LAND_H = 0.8;
@@ -391,7 +392,9 @@ export class Globe {
       } else if (rec.pin.count !== pin.count) {
         rec.el.classList.remove('bump'); void rec.el.offsetWidth; rec.el.classList.add('bump');
       }
-      rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${iconSvg(f?.icon ?? 'fish', color, 30)}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
+      const ph = photo(top.id, true);
+      const pic = ph ? `<img class="pin-photo" src="${ph}" alt="" decoding="async">` : iconSvg(f?.icon ?? 'fish', color, 30);
+      rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${pic}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
       rec.el.style.setProperty('--s', String(pinScale(pin.count)));
       rec.el.setAttribute('aria-label', `${pin.name}：${pin.fish.map((x) => `${x.name}${x.count}件`).join('、')}`);
       (rec.stem.material as THREE.MeshBasicMaterial).color.set(color);

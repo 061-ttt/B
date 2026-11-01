@@ -5,6 +5,7 @@ import { Sheets, SegThumb } from './Sheets';
 import { Zukan } from './Zukan';
 import { Worksheet } from './Worksheet';
 import { G } from './Glyph';
+import { QrBig, QrScanner } from './Qr';
 
 const TABS: { id: Tab; label: string; icon: () => preact.JSX.Element }[] = [
   { id: 'map', label: '地球儀', icon: G.globe },
@@ -34,6 +35,8 @@ export function App() {
       {tab.value !== 'map' && <><div class="fade-top" aria-hidden="true" /><div class="fade-bottom" aria-hidden="true" /></>}
       <TabBar />
       <Sheets />
+      <QrBig />
+      <QrScanner />
       <Toast />
     </>
   );

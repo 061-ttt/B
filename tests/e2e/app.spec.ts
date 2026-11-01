@@ -302,3 +302,101 @@ test('10. 横スクロールなし・全タブでレイアウトが崩れない'
   await expect(page.locator('.tabbar')).toBeInViewport();
   await expect(page.locator('#memo')).toBeInViewport();
 });
+
+test('11. 先生がクラスをつくると大きなQRコードが出て、読み取るとそのクラスのリンクになる', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByTestId('room-btn').click();
+  await page.getByTestId('create-room').click();
+  const big = page.getByTestId('qr-big');
+  await expect(big).toBeVisible();
+  await page.waitForTimeout(900); // 出てくるアニメーションが終わるまで
+  const code = (await big.locator('.code').textContent())!.trim();
+  expect(code).toMatch(/^[A-Z0-9]{6}$/);
+  // 画面に映ったQRコードを実際に読み取る
+  const png = await page.getByTestId('qr-big-svg').screenshot();
+  const { PNG } = await import('pngjs');
+  const jsQR = (await import('jsqr')).default;
+  const img = PNG.sync.read(png);
+  const text = jsQR(new Uint8ClampedArray(img.data), img.width, img.height)?.data;
+  expect(text).toBe(`http://127.0.0.1:8787/?room=${code}`);
+  await page.keyboard.press('Escape');
+  await expect(big).toHaveCount(0);
+  // クラスのシートからも大きく出せる
+  await page.getByTestId('room-btn').click();
+  await expect(page.getByTestId('room-qr')).toBeVisible();
+  await page.getByTestId('qr-big-btn').click();
+  await expect(page.getByTestId('qr-big')).toBeVisible();
+});
+
+test('12. アプリのカメラでQRコードを読み取ってクラスに参加できる', async ({ playwright }) => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const qrcode = (await import('qrcode-generator')).default;
+  const room = await (await fetch('http://127.0.0.1:8787/api/rooms', { method: 'POST', body: '{}' })).json();
+  // 参加用QRコードを写した「カメラ映像」（Y4M形式）を作り、偽のカメラとして渡す
+  const q = qrcode(0, 'M');
+  q.addData(`http://127.0.0.1:8787/?room=${room.code}`);
+  q.make();
+  const W = 640, H = 480, n = q.getModuleCount(), cell = Math.floor(400 / (n + 8)), size = cell * (n + 8);
+  const ox = (W - size) / 2 | 0, oy = (H - size) / 2 | 0;
+  const Y = Buffer.alloc(W * H, 235);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const r = Math.floor(y / cell) - 4, c = Math.floor(x / cell) - 4;
+    if (r >= 0 && c >= 0 && r < n && c < n && q.isDark(r, c)) Y[(oy + y) * W + ox + x] = 16;
+  }
+  const UV = Buffer.alloc((W / 2) * (H / 2) * 2, 128);
+  const frames = Array.from({ length: 20 }, () => Buffer.concat([Buffer.from('FRAME\n'), Y, UV]));
+  // Chrome は日本語を含むパスの映像ファイルを開けないため、英数字だけの一時フォルダに置く
+  const os = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suisan-cam-'));
+  const y4m = path.join(dir, 'qr.y4m');
+  fs.writeFileSync(y4m, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F10:1 Ip A1:1 C420jpeg\n`), ...frames]));
+  const b = await playwright.chromium.launch({
+    executablePath: process.env.PW_CHROME_PATH || undefined,
+    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-video-capture=${y4m}`],
+  });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, permissions: ['camera'] });
+  const page = await ctx.newPage();
+  await page.goto('http://127.0.0.1:8787/');
+  await ready(page);
+  await page.getByTestId('room-btn').click();
+  await page.getByTestId('scan-btn').click();
+  await expect(page.getByTestId('qr-scan')).toBeVisible();
+  await expect(page.getByTestId('room-btn')).toContainText(room.code, { timeout: 20_000 });
+  await expect(page.getByTestId('qr-scan')).toHaveCount(0);
+  await expect(page.locator('.status-dot.live')).toBeVisible();
+  await b.close();
+});
+
+test('13. 60人が同時に入力しても、すぐに全部が地球儀に出る', async ({ page }) => {
+  const room = await (await fetch('http://127.0.0.1:8787/api/rooms', { method: 'POST', body: '{}' })).json();
+  await page.goto(`/?room=${room.code}`);
+  await ready(page);
+  await expect(page.locator('.status-dot.live')).toBeVisible();
+  // ほかの59人分の端末
+  const places = ['hokkaido', 'miyagi', 'chiba', 'shizuoka', 'nagasaki', 'kagoshima', 'hiroshima', 'kochi'];
+  const fish = ['salmon', 'mackerel', 'saury', 'tuna', 'scallop', 'oyster', 'bonito', 'yellowtail'];
+  const socks = await Promise.all(Array.from({ length: 59 }, () => new Promise<WebSocket>((res, rej) => {
+    const w = new WebSocket(`ws://127.0.0.1:8787/api/rooms/${room.code}/ws`);
+    w.onopen = () => res(w);
+    w.onerror = () => rej(new Error('ws'));
+  })));
+  const t0 = Date.now();
+  socks.forEach((w, i) => {
+    for (let k = 0; k < 3; k++) {
+      w.send(JSON.stringify({ type: 'add', entry: { id: `L${i}x${k}${Date.now().toString(36)}`, fishId: fish[(i + k) % 8], fishName: 'x', placeId: places[(i * 2 + k) % 8], method: 'unknown', group: (i % 8) + 1, at: Date.now(), device: `dsim${i}` } }));
+    }
+  });
+  await expect(page.getByTestId('total')).toHaveText('177', { timeout: 10_000 });
+  const ms = Date.now() - t0;
+  console.log(`59台・177件がこの端末の画面に出るまで ${ms} ms`);
+  expect(ms).toBeLessThan(3000);
+  // この端末からも入力できる
+  await addEntry(page, 'さけ', '北海道');
+  await expect(page.getByTestId('total')).toHaveText('178');
+  // 産地×魚のピンが出ている
+  expect(await page.locator('.pin').count()).toBeGreaterThan(20);
+  await expect(page.locator('#memo')).toBeEditable();
+  socks.forEach((w) => w.close());
+});

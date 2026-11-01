@@ -16,7 +16,8 @@ export interface Env {
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_RE = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
-const MAX_ENTRIES = 800;
+const MAX_ENTRIES = 3000;   // 60人×50件まで
+const MAX_SOCKETS = 150;    // 1クラスの同時接続（60人＋先生・電子黒板などに余裕）
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function randomString(n: number, chars = CODE_CHARS) {
@@ -53,8 +54,59 @@ export class Room extends DurableObject<Env> {
     const s = JSON.stringify(msg);
     for (const ws of this.ctx.getWebSockets()) if (ws !== except) try { ws.send(s); } catch { /* 切断済み */ }
   }
-  private presence() {
-    this.broadcast({ type: 'presence', n: this.ctx.getWebSockets().length });
+  // 人数の知らせは0.3秒ごとにまとめる（60台が一斉につないでも送りすぎない）
+  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private presence(except?: WebSocket) {
+    if (this.presenceTimer) return;
+    this.presenceTimer = setTimeout(() => {
+      this.presenceTimer = null;
+      const live = this.ctx.getWebSockets().filter((w) => w !== except && w.readyState === 1);
+      const msg = JSON.stringify({ type: 'presence', n: live.length });
+      for (const w of live) try { w.send(msg); } catch { /* */ }
+    }, 300);
+  }
+
+  // 新しい入力は15ミリ秒ごとにまとめて全員へ送る（同時に何十件来ても1通にまとまる）
+  private outbox: Entry[] = [];
+  private outTimer: ReturnType<typeof setTimeout> | null = null;
+  private queue(e: Entry) {
+    this.outbox.push(e);
+    if (this.outTimer) return;
+    this.outTimer = setTimeout(() => {
+      this.outTimer = null;
+      const list = this.outbox;
+      this.outbox = [];
+      this.broadcast(list.length === 1 ? { type: 'add', entry: list[0] } : { type: 'adds', entries: list });
+    }, 15);
+  }
+
+  /** 入力を1件加える（HTTPでもWebSocketでも同じ処理） */
+  private add(raw: unknown): { entry: Entry } | { error: string; status: number } {
+    const e = sanitize(raw);
+    if (!e) return { error: 'invalid', status: 400 };
+    // 連打・いたずら対策：1台あたり1分に30件まで
+    const now = Date.now();
+    const r = (this.recent.get(e.device) ?? []).filter((t) => now - t < 60_000);
+    if (r.length >= 30) return { error: 'too many', status: 429 };
+    r.push(now);
+    this.recent.set(e.device, r);
+    const n = this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM entries').one().n;
+    if (n >= MAX_ENTRIES) return { error: 'full', status: 507 };
+    // 同じIDが2回届いても1件だけ（送り直しに強い）
+    const res = this.sql.exec('INSERT OR IGNORE INTO entries (id, data, at) VALUES (?, ?, ?)', e.id, JSON.stringify(e), e.at);
+    if (res.rowsWritten > 0) this.queue(e);
+    return { entry: e };
+  }
+
+  private async remove(id: string, device?: string, key?: string): Promise<{ ok: true } | { error: string; status: number }> {
+    const row = this.sql.exec<{ data: string }>('SELECT data FROM entries WHERE id = ?', id).toArray()[0];
+    if (!row) return { ok: true };
+    const e = JSON.parse(row.data) as Entry;
+    const teacher = !!key && (await sha256(key)) === this.meta('key');
+    if (e.device !== device && !teacher) return { error: 'forbidden', status: 403 };
+    this.sql.exec('DELETE FROM entries WHERE id = ?', id);
+    this.broadcast({ type: 'del', id });
+    return { ok: true };
   }
 
   async fetch(req: Request): Promise<Response> {
@@ -73,6 +125,7 @@ export class Room extends DurableObject<Env> {
 
     if (path === '/ws') {
       if (req.headers.get('Upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
+      if (this.ctx.getWebSockets().length >= MAX_SOCKETS) return Response.json({ error: 'room full' }, { status: 503 });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       pair[1].send(JSON.stringify({ type: 'snapshot', entries: this.entries() }));
@@ -83,50 +136,39 @@ export class Room extends DurableObject<Env> {
       return Response.json({ entries: this.entries(), created: Number(created) });
     }
     if (path === '/entries' && req.method === 'POST') {
-      const e = sanitize(await req.json().catch(() => null));
-      if (!e) return Response.json({ error: 'invalid' }, { status: 400 });
-      // 連打・いたずら対策：1台あたり1分に30件まで
-      const now = Date.now();
-      const r = (this.recent.get(e.device) ?? []).filter((t) => now - t < 60_000);
-      if (r.length >= 30) return Response.json({ error: 'too many' }, { status: 429 });
-      r.push(now);
-      this.recent.set(e.device, r);
-      const n = this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM entries').one().n;
-      if (n >= MAX_ENTRIES) return Response.json({ error: 'full' }, { status: 507 });
-      const dup = this.sql.exec('SELECT id FROM entries WHERE id = ?', e.id).toArray().length > 0;
-      if (!dup) {
-        this.sql.exec('INSERT INTO entries (id, data, at) VALUES (?, ?, ?)', e.id, JSON.stringify(e), e.at);
-        this.broadcast({ type: 'add', entry: e });
-      }
-      return Response.json({ entry: e });
+      const r = this.add(await req.json().catch(() => null));
+      return 'error' in r ? Response.json({ error: r.error }, { status: r.status }) : Response.json(r);
     }
     const m = path.match(/^\/entries\/([a-z0-9]{4,40})$/i);
     if (m && req.method === 'DELETE') {
       const body = (await req.json().catch(() => ({}))) as { device?: string; key?: string };
-      const row = this.sql.exec<{ data: string }>('SELECT data FROM entries WHERE id = ?', m[1]).toArray()[0];
-      if (!row) return Response.json({ ok: true });
-      const e = JSON.parse(row.data) as Entry;
-      const teacher = !!body.key && (await sha256(body.key)) === this.meta('key');
-      if (e.device !== body.device && !teacher) return Response.json({ error: 'forbidden' }, { status: 403 });
-      this.sql.exec('DELETE FROM entries WHERE id = ?', m[1]);
-      this.broadcast({ type: 'del', id: m[1] });
-      return Response.json({ ok: true });
+      const r = await this.remove(m[1], body.device, body.key);
+      return 'error' in r ? Response.json({ error: r.error }, { status: r.status }) : Response.json(r);
     }
     return Response.json({ error: 'not found' }, { status: 404 });
   }
 
+  /** WebSocketでの送信：HTTPより速く、60台が同時に送っても1本の接続で済む */
   async webSocketMessage(ws: WebSocket, msg: string | ArrayBuffer) {
-    if (msg === 'ping') ws.send('pong');
+    if (typeof msg !== 'string') return;
+    if (msg === 'ping') { ws.send('pong'); return; }
+    let m: { type?: string; entry?: unknown; id?: string; device?: string; key?: string };
+    try { m = JSON.parse(msg); } catch { return; }
+    if (m.type === 'add') {
+      const r = this.add(m.entry);
+      const id = (m.entry as { id?: string } | undefined)?.id;
+      ws.send(JSON.stringify('error' in r ? { type: 'nack', id, error: r.error } : { type: 'ack', id }));
+    } else if (m.type === 'del' && typeof m.id === 'string') {
+      const r = await this.remove(m.id, m.device, m.key);
+      if ('error' in r) ws.send(JSON.stringify({ type: 'nack', id: m.id, error: r.error }));
+    }
   }
   async webSocketClose(ws: WebSocket, code: number) {
     try { ws.close(code === 1005 ? 1000 : code, 'bye'); } catch { /* */ }
-    // 閉じたソケットを除いて人数を知らせる
-    const n = this.ctx.getWebSockets().filter((w) => w !== ws).length;
-    this.broadcast({ type: 'presence', n }, ws);
+    this.presence(ws);
   }
   async webSocketError(ws: WebSocket) {
-    const n = this.ctx.getWebSockets().filter((w) => w !== ws).length;
-    this.broadcast({ type: 'presence', n }, ws);
+    this.presence(ws);
   }
 
   /** 30日たったらクラスのデータをすべて消す */

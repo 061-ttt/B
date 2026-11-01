@@ -11,7 +11,8 @@
     "typecheck": "tsc -p . && tsc -p worker",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "test:load": "node tests/load/realtime.mjs 60 3"
   },
   "license": "MIT",
   "dependencies": {
@@ -20,6 +21,7 @@
     "@preact/signals": "^2.11.4",
     "d3-geo": "^3.1.1",
     "hono": "^4.13.16",
+    "jsqr": "^1.4.0",
     "preact": "^11.1.1",
     "qrcode-generator": "^2.0.4",
     "three": "^0.187.0",
@@ -33,6 +35,7 @@
     "@types/three": "^0.187.0",
     "@types/topojson-client": "^3.1.5",
     "d3-geo-projection": "^4.0.0",
+    "pngjs": "^7.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-singlefile": "^2.3.4",

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import qrcode from 'qrcode-generator';
 import { BottomSheet } from './Sheet';
 import { aiOk, device, entries, focusFish, group, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey } from '../state';
 import { addEntry, aiParse, createRoom, deleteEntry, joinRoom } from '../core/sync';
@@ -10,11 +9,18 @@ import { findPlace, suggestPlaces, PLACE_BY_ID, type Place } from '../data/place
 const QUICK_PLACES = ['hokkaido', 'aomori', 'miyagi', 'chiba', 'shizuoka', 'nagasaki', 'kagoshima', 'norway', 'chile', 'china', 'vietnam', 'usa', 'russia'];
 import { FISH, FISH_BY_ID, type Fish } from '../data/fish';
 import { iconSvg } from './icons';
+import { photo } from './photo';
+
+const pic = (id: string | null | undefined, icon: Parameters<typeof iconSvg>[0], color: string, size: number) => {
+  const p = photo(id, true);
+  return p ? `<img class="chip-photo" src="${p}" alt="" style="width:${size}px;height:${Math.round(size * 0.68)}px">` : iconSvg(icon, color, size);
+};
 import { G } from './Glyph';
 import { uid } from '../core/model';
 import { pinsNow, globe } from './MapView';
 import { DEPTH_LEGEND } from '../map/depth';
 import { openFish } from './Zukan';
+import { bigQr, joinUrl, qrSvg, scanning } from './Qr';
 
 export function Sheets() {
   const s = sheet.value;
@@ -123,7 +129,7 @@ function AddForm() {
       <div class="sugg" role="listbox" aria-label="魚の候補">
         {fishList.map((f) => (
           <button key={f.id} role="option" aria-selected={fish?.id === f.id} class={fish?.id === f.id ? 'sel' : ''} onClick={() => { setFish(f); setFishQ(f.name); }}
-            dangerouslySetInnerHTML={{ __html: `${iconSvg(f.icon, f.color, 24)}${f.name}` }} />
+            dangerouslySetInnerHTML={{ __html: `${pic(f.id, f.icon, f.color, 30)}${f.name}` }} />
         ))}
       </div>
 
@@ -192,7 +198,7 @@ function PinDetail({ k }: { k: string }) {
           const d = f.id ? FISH_BY_ID.get(f.id) : undefined;
           return (
             <div class={`pin-item ${p.key === k ? 'on' : ''}`} key={p.key} data-pin-item={p.fishKey}>
-              <span dangerouslySetInnerHTML={{ __html: iconSvg(d?.icon ?? 'fish', d?.color ?? '#9fd3ff', 30) }} />
+              <span dangerouslySetInnerHTML={{ __html: pic(f.id, d?.icon ?? 'fish', d?.color ?? '#9fd3ff', 44) }} />
               <span class="nm">{f.name}</span>
               <span class="ct">{p.count}</span>
               {d && <button class="btn" style={{ height: '30px', padding: '0 10px', fontSize: '12px' }} onClick={() => { sheet.value = null; openFish(d.id); }}>図鑑</button>}
@@ -219,14 +225,8 @@ function PinDetail({ k }: { k: string }) {
 function RoomForm() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const url = room.value ? `${location.origin}${location.pathname}?room=${room.value}` : '';
-  const qr = useMemo(() => {
-    if (!url) return '';
-    const q = qrcode(0, 'M');
-    q.addData(url);
-    q.make();
-    return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
-  }, [url]);
+  const url = joinUrl(room.value);
+  const qr = useMemo(() => qrSvg(url), [url]);
   const st = mode.value;
   return (
     <div>
@@ -238,27 +238,33 @@ function RoomForm() {
             <span class={`status-dot ${st}`} style={{ display: 'inline-block', marginRight: '6px' }} />
             {st === 'live' ? `つながっています（${presence.value}台）` : st === 'connecting' ? 'つないでいます…' : 'オフライン：この端末に保存し、つながったら送ります'}
           </p>
-          <div class="qr" dangerouslySetInnerHTML={{ __html: qr }} aria-label="参加用のQRコード" />
+          <button class="qr" dangerouslySetInnerHTML={{ __html: qr }} aria-label="参加用のQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: room.value })} data-testid="room-qr" />
           <p class="hint" style={{ textAlign: 'center' }}>QRコードを読み取るか、コードを入力して参加</p>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <button class="btn" style={{ flex: 1 }} onClick={() => { navigator.clipboard?.writeText(url).then(() => showToast('リンクをコピーしました')); }}>リンクをコピー</button>
-            <button class="btn" style={{ flex: 1 }} onClick={() => joinRoom(null)}>この端末だけで使う</button>
+          <div class="room-acts">
+            <button class="btn primary" onClick={() => (bigQr.value = { code: room.value })} data-testid="qr-big-btn"><G.qr />QRを大きく表示</button>
+            <button class="btn" onClick={() => { navigator.clipboard?.writeText(url).then(() => showToast('リンクをコピーしました'), () => showToast(url)); }}>リンクをコピー</button>
+            <button class="btn" onClick={() => joinRoom(null)}>この端末だけで使う</button>
           </div>
         </>
       ) : (
         <>
           <p class="sub" style={{ margin: '0 4px 8px' }}>いまは、この端末だけに保存しています。</p>
-          <label class="field-l" for="code"><span class="num" style={{ '--n': 'var(--cyan)' }}>01</span>クラスコードで参加</label>
+          <button class="btn primary block" onClick={() => { sheet.value = null; scanning.value = true; }} data-testid="scan-btn"><G.qr />QRコードを読み取って参加</button>
+          <label class="field-l" for="code"><span class="num" style={{ '--n': 'var(--cyan)' }}>01</span>またはクラスコードを入力</label>
           <div class="inp-row">
             <input id="code" class="inp" value={code} maxLength={6} placeholder="6文字" style={{ textTransform: 'uppercase', letterSpacing: '.2em', fontWeight: 800 }}
               onInput={(e) => setCode((e.target as HTMLInputElement).value.replace(/[^0-9a-z]/gi, '').toUpperCase())} data-testid="code-input" />
-            <button class="btn primary" style={{ height: '48px', borderRadius: '16px' }} disabled={code.length !== 6 || serverOk.value === false} onClick={() => joinRoom(code)} data-testid="join">参加</button>
+            <button class="btn primary" style={{ height: '50px', borderRadius: '16px' }} disabled={code.length !== 6 || serverOk.value === false} onClick={() => joinRoom(code)} data-testid="join">参加</button>
           </div>
-          <div style={{ height: '14px' }} />
-          <button class="btn block" disabled={busy || serverOk.value === false} onClick={async () => { setBusy(true); await createRoom(); setBusy(false); }} data-testid="create-room">
-            {busy ? 'つくっています…' : '先生：クラスをつくる'}
+          <div style={{ height: '16px' }} />
+          <button class="btn block" disabled={busy || serverOk.value === false} onClick={async () => { setBusy(true); const c = await createRoom(); setBusy(false); if (c) bigQr.value = { code: c }; }} data-testid="create-room">
+            {busy ? 'つくっています…' : '先生：クラスをつくる（QRコードが出ます）'}
           </button>
           {serverOk.value === false && <p class="hint">サーバーにつながらないため、この端末だけで使えます。</p>}
+          <div class="app-qr">
+            <button class="qr small" dangerouslySetInnerHTML={{ __html: qr }} aria-label="このアプリのQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: null })} />
+            <p class="hint">このアプリを開くQRコード。タップで大きく表示</p>
+          </div>
           <p class="hint">名前などの個人情報は集めません。クラスのデータは30日たつと自動で消えます。</p>
         </>
       )}

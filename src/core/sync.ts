@@ -3,6 +3,8 @@
 import type { Entry } from './model';
 import { aiOk, device, entries, mode, pending, presence, reloadEntries, removeEntry, room, serverOk, showToast, teacherKey, upsertEntry, lastAdded } from '../state';
 
+// 他の人の入力では地球儀を動かさない（60人分あちこちに飛ばないように）。自分の入力のときだけ飛ぶ
+
 const API = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 let ws: WebSocket | null = null;
 let retry = 0;
@@ -84,30 +86,62 @@ function schedule() {
   retryTimer = window.setTimeout(() => { serverOk.value = null; connect(); }, 1000 * 2 ** retry);
 }
 
+// 受け取った入力は30ミリ秒ごとにまとめて画面に反映する（60人が同時に送っても描き直しは少なく）
+let inbox: Entry[] = [];
+let inboxDel: string[] = [];
+let inboxTimer = 0;
+function scheduleInbox() {
+  if (inboxTimer) return;
+  inboxTimer = window.setTimeout(() => {
+    inboxTimer = 0;
+    const add = inbox, del = new Set(inboxDel);
+    inbox = []; inboxDel = [];
+    const have = new Set(entries.peek().map((e) => e.id));
+    const fresh = add.filter((e) => !have.has(e.id) && !del.has(e.id));
+    if (!fresh.length && !del.size) return;
+    entries.value = [...entries.peek().filter((e) => !del.has(e.id)), ...fresh];
+    // 自分の入力の確認が来たら送信待ちから外す
+    if (pending.peek().length) {
+      const ids = new Set(add.map((e) => e.id));
+      pending.value = pending.peek().filter((p) => !ids.has(p.id));
+    }
+  }, 30);
+}
+
 function openSocket(code: string) {
   const base = API ? new URL(API) : new URL(location.href);
   const proto = base.protocol === 'https:' ? 'wss:' : 'ws:';
   const s = new WebSocket(`${proto}//${base.host}/api/rooms/${code}/ws`);
   ws = s;
-  s.onopen = () => { mode.value = 'live'; retry = 0; };
+  s.onopen = () => { mode.value = 'live'; retry = 0; flushWs(); };
   s.onmessage = (ev) => {
-    let m: { type: string; entry?: Entry; id?: string; entries?: Entry[]; n?: number };
+    if (ev.data === 'pong') return;
+    let m: { type: string; entry?: Entry; id?: string; entries?: Entry[]; n?: number; error?: string };
     try { m = JSON.parse(ev.data); } catch { return; }
-    if (m.type === 'add' && m.entry) {
-      const isNew = !entries.value.some((x) => x.id === m.entry!.id);
-      upsertEntry(m.entry);
-      if (isNew && m.entry.device !== device) lastAdded.value = m.entry;
+    if (m.type === 'add' && m.entry) { inbox.push(m.entry); scheduleInbox(); }
+    else if (m.type === 'adds' && m.entries) { inbox.push(...m.entries); scheduleInbox(); }
+    else if (m.type === 'del' && m.id) { inboxDel.push(m.id); scheduleInbox(); }
+    else if (m.type === 'ack' && m.id) { pending.value = pending.peek().filter((p) => p.id !== m.id); }
+    else if (m.type === 'nack' && m.id) {
+      pending.value = pending.peek().filter((p) => p.id !== m.id);
+      if (m.error === 'too many') showToast('入力が多すぎます。少し待ってからもう一度');
+      else if (m.error === 'full') showToast('このクラスはいっぱいです');
     }
-    if (m.type === 'del' && m.id) removeEntry(m.id);
-    if (m.type === 'snapshot' && m.entries) {
-      const mine = pending.value.filter((p) => !m.entries!.some((e) => e.id === p.id));
+    else if (m.type === 'snapshot' && m.entries) {
+      const mine = pending.peek().filter((p) => !m.entries!.some((e) => e.id === p.id));
       entries.value = [...m.entries, ...mine];
     }
-    if (m.type === 'presence' && typeof m.n === 'number') presence.value = m.n;
+    else if (m.type === 'presence' && typeof m.n === 'number') presence.value = m.n;
   };
   s.onclose = () => { if (ws === s) { ws = null; mode.value = 'offline'; schedule(); } };
-  // 定期的に生存確認（Durable Objectのハイバネーション中も自動応答される）
   const ping = setInterval(() => { if (s.readyState === 1) s.send('ping'); else clearInterval(ping); }, 25000);
+}
+
+/** つながっているWebSocketで、送信待ちをまとめて送る */
+function flushWs() {
+  if (!ws || ws.readyState !== 1) return false;
+  for (const e of pending.peek()) ws.send(JSON.stringify({ type: 'add', entry: e }));
+  return true;
 }
 
 async function flush() {
@@ -126,14 +160,17 @@ export async function addEntry(e: Entry) {
   upsertEntry(e);
   lastAdded.value = e;
   if (!room.value) return;
-  pending.value = [...pending.value, e];
-  if (mode.value === 'live' || mode.value === 'connecting') await flush();
+  pending.value = [...pending.peek(), e];
+  // ふだんはWebSocketで即送信。つながっていなければHTTPで送る
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'add', entry: e }));
+  else if (mode.value !== 'offline') await flush();
 }
 
 export async function deleteEntry(e: Entry) {
   removeEntry(e.id);
   pending.value = pending.value.filter((p) => p.id !== e.id);
   if (!room.value) return;
+  if (ws && ws.readyState === 1) { ws.send(JSON.stringify({ type: 'del', id: e.id, device, key: teacherKey.value })); return; }
   try {
     await j(`/api/rooms/${room.value}/entries/${e.id}`, { method: 'DELETE', body: JSON.stringify({ device, key: teacherKey.value }) });
   } catch { /* オフライン時は手元だけ */ }
