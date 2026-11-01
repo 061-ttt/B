@@ -114,25 +114,36 @@ test('3. 地球儀・海流アニメーション・潮目・深さ・端がな�
   await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('detail');
 });
 
-test('4. 入力するとピンが浮き上がり、件数で大きくなる', async ({ page }) => {
+test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別の魚は別のピンになる', async ({ page }) => {
   await page.goto('/');
   await ready(page);
   await addEntry(page, 'さけ', '北海道', { method: '天然' });
-  const pin = page.locator('.pin[data-key=hokkaido]');
-  await expect(pin).toBeVisible();
-  await expect(pin.locator('.pin-name')).toContainText('さけ');
-  await expect(pin.locator('.pin-count')).toHaveText('1');
-  const s1 = Number(await pin.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
-  await addEntry(page, 'さんま', 'ほっかいどう');
+  const salmon = page.locator('.pin[data-key="hokkaido|salmon"]');
+  await expect(salmon).toBeVisible();
+  await expect(salmon.locator('.pin-name')).toContainText('さけ');
+  await expect(salmon.locator('.pin-count')).toHaveText('1');
+  const s1 = Number(await salmon.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
+  await addEntry(page, 'さけ', 'ほっかいどう');
+  await expect(salmon.locator('.pin-count')).toHaveText('2');
+  const s2 = Number(await salmon.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
+  expect(s2).toBeGreaterThan(s1);
+  // 同じ北海道でも、さんま・ほたては別のピン
+  await addEntry(page, 'さんま', '北海道');
   await addEntry(page, 'ほたて', '北海道');
-  await expect(pin.locator('.pin-count')).toHaveText('3');
-  const s3 = Number(await pin.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
-  expect(s3).toBeGreaterThan(s1);
-  await expect(page.getByTestId('total')).toHaveText('3');
-  // ピンをタップすると内訳
-  await pin.click();
-  await expect(page.getByTestId('pin-sheet')).toContainText('さんま');
-  await expect(page.getByTestId('pin-sheet')).toContainText('3件');
+  const hk = page.locator('.pin[data-place=hokkaido]');
+  await expect(hk).toHaveCount(3);
+  await expect(page.locator('.pin[data-key="hokkaido|saury"] .pin-count')).toHaveText('1');
+  await expect(page.locator('.pin[data-key="hokkaido|scallop"]')).toBeVisible();
+  // 重ならずに縦に並ぶ
+  const ys = await hk.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => [r.top, r.bottom]));
+  ys.sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < ys.length; i++) expect(ys[i][0]).toBeGreaterThanOrEqual(ys[i - 1][1] - 2);
+  await expect(page.getByTestId('total')).toHaveText('4');
+  // ピンをタップすると、その産地の魚が一覧で出る
+  await page.locator('.pin[data-key="hokkaido|saury"]').click();
+  const sheet = page.getByTestId('pin-sheet');
+  await expect(sheet).toContainText('3種類・4件');
+  await expect(sheet.locator('.pin-item.on')).toContainText('さんま');
 });
 
 test('5. 値札の文字から読み取り、国内・外国で絞り込む', async ({ page }) => {
@@ -149,14 +160,16 @@ test('5. 値札の文字から読み取り、国内・外国で絞り込む', as
   await sheet.getByTestId('submit').click();
   // 外国の入力なので、地球儀を引いてチリへ飛ぶ
   await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('world');
-  await expect(page.locator('.pin[data-key=chile]')).toBeVisible();
-  await expect(page.locator('.pin[data-key=japan]')).toBeAttached();
+  const chile = page.locator('.pin[data-key="chile|salmon"]');
+  const japan = page.locator('.pin[data-key="japan|mackerel"]');
+  await expect(chile).toBeVisible();
+  await expect(japan).toBeAttached();
   await page.locator('[data-filter=domestic]').click();
-  await expect(page.locator('.pin[data-key=chile]')).toHaveClass(/dim/);
-  await expect(page.locator('.pin[data-key=japan]')).not.toHaveClass(/dim/);
+  await expect(chile).toHaveClass(/dim/);
+  await expect(japan).not.toHaveClass(/dim/);
   await page.locator('[data-filter=farmed]').click();
-  await expect(page.locator('.pin[data-key=chile]')).not.toHaveClass(/dim/);
-  await expect(page.locator('.pin[data-key=japan]')).toHaveClass(/dim/);
+  await expect(chile).not.toHaveClass(/dim/);
+  await expect(japan).toHaveClass(/dim/);
 });
 
 test('6. タスクはなく、以前のタスクも消える。メモはシートで使える', async ({ page }) => {
@@ -235,10 +248,10 @@ test('8. 2台の端末でリアルタイムに集まる', async ({ browser }) =>
   await expect(B.locator('.status-dot.live')).toBeVisible();
 
   await addEntry(A, 'かき', '広島');
-  await expect(B.locator('.pin[data-key=hiroshima]')).toBeVisible({ timeout: 10_000 });
+  await expect(B.locator('.pin[data-key="hiroshima|oyster"]')).toBeVisible({ timeout: 10_000 });
   await expect(B.getByTestId('total')).toHaveText('1');
   await addEntry(B, 'かき', '広島');
-  await expect(A.locator('.pin[data-key=hiroshima] .pin-count')).toHaveText('2', { timeout: 10_000 });
+  await expect(A.locator('.pin[data-key="hiroshima|oyster"] .pin-count')).toHaveText('2', { timeout: 10_000 });
   // 再読み込みしてもサーバーから戻る
   await B.reload();
   await ready(B);

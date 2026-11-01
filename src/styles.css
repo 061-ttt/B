@@ -100,6 +100,9 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .pin-name { font-size: 12px; font-weight: 800; white-space: nowrap; color: #fff; }
 .pin-name small { font-size: 9px; font-weight: 700; margin-left: 3px; opacity: .7; }
 .pin-count { min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--c); color: #04060c; font: 800 11px/1 var(--num); display: grid; place-items: center; box-shadow: 0 0 10px var(--c); }
+.pin.stacked .pin-place { display: none; }
+.pin.stacked .pin-bubble::after { display: none; }
+.pin[data-more]:not([data-more=""])::before { content: attr(data-more); position: absolute; left: 50%; bottom: calc(100% * var(--s, 1) + 4px); translate: -50% 0; font-size: 10px; font-weight: 800; color: var(--sub); white-space: nowrap; }
 .pin-place { position: absolute; left: 50%; top: calc(100% + 9px); translate: -50% 0; font-size: 9px; font-weight: 700; color: var(--sub); white-space: nowrap; text-shadow: 0 1px 3px #000; }
 .pin.rise > * { animation: rise .9s var(--spring) both; }
 .pin.bump > * { animation: bump .6s var(--spring); }
@@ -279,6 +282,7 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .mic.on { background: var(--red) !important; color: #fff; animation: breathe 1s infinite; }
 .pin-list { display: grid; gap: 8px; }
 .pin-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: rgba(255, 255, 255, .05); }
+.pin-item.on { background: rgba(62, 230, 255, .12); box-shadow: inset 0 0 0 1.5px rgba(62, 230, 255, .55); }
 .pin-item .nm { flex: 1; font-weight: 800; min-width: 0; }
 .pin-item .ct { font: 800 16px var(--num); font-variant-numeric: tabular-nums; }
 .pin-item .del { border: 0; background: rgba(255, 74, 92, .16); color: #ffb3bb; border-radius: 12px; height: 30px; padding: 0 10px; font-size: 12px; font-weight: 800; }

@@ -173,32 +173,38 @@ export function SegThumb({ idx, n }: { idx: number; n: number }) {
 }
 
 function PinDetail({ k }: { k: string }) {
-  const pin = pinsNow.value.find((p) => p.key === k);
-  if (!pin) return <p class="empty">データがありません</p>;
-  const place = PLACE_BY_ID.get(k);
+  const tapped = pinsNow.value.find((p) => p.key === k);
+  const placeKey = tapped?.placeKey ?? k.split('|')[0];
+  const same = pinsNow.value.filter((p) => p.placeKey === placeKey);
+  if (!same.length) return <p class="empty">データがありません</p>;
+  const total = same.reduce((n, p) => n + p.count, 0);
+  const place = PLACE_BY_ID.get(placeKey);
+  const all = same.flatMap((p) => p.entries);
   const canDel = (e: { device: string }) => e.device === device || !!teacherKey.value;
   return (
     <div>
-      <h3>{pin.name} <span class="sub">{pin.count}件</span></h3>
-      {place && <p class="hint" style={{ marginTop: '-6px', marginBottom: '10px' }}>{place.kind === 'country' ? '外国' : place.kind === 'sea' ? (place.domestic ? '日本の近くの海' : '遠くの海（遠洋）') : '国内'}{k === 'japan' ? '（近づくと産地ごとに分かれます）' : ''}</p>}
+      <h3>{same[0].name} <span class="sub">{same.length}種類・{total}件</span></h3>
+      {place && <p class="hint" style={{ marginTop: '-6px', marginBottom: '10px' }}>{place.kind === 'country' ? '外国' : place.kind === 'sea' ? (place.domestic ? '日本の近くの海' : '遠くの海（遠洋）') : '国内'}</p>}
+      {placeKey === 'japan' && <p class="hint" style={{ marginTop: '-6px', marginBottom: '10px' }}>近づくと都道府県や港ごとに分かれます</p>}
       <div class="pin-list">
-        {pin.fish.map((f) => {
+        {same.map((p) => {
+          const f = p.fish[0];
           const d = f.id ? FISH_BY_ID.get(f.id) : undefined;
           return (
-            <div class="pin-item" key={f.id ?? f.name}>
+            <div class={`pin-item ${p.key === k ? 'on' : ''}`} key={p.key} data-pin-item={p.fishKey}>
               <span dangerouslySetInnerHTML={{ __html: iconSvg(d?.icon ?? 'fish', d?.color ?? '#9fd3ff', 30) }} />
               <span class="nm">{f.name}</span>
-              <span class="ct">{f.count}</span>
+              <span class="ct">{p.count}</span>
               {d && <button class="btn" style={{ height: '30px', padding: '0 10px', fontSize: '12px' }} onClick={() => { sheet.value = null; openFish(d.id); }}>図鑑</button>}
             </div>
           );
         })}
       </div>
-      {k === 'japan' && <button class="btn block" style={{ marginTop: '12px' }} onClick={() => { sheet.value = null; globe?.flyJapan(); }}>日本に近づいて見る</button>}
+      {placeKey === 'japan' && <button class="btn block" style={{ marginTop: '12px' }} onClick={() => { sheet.value = null; globe?.flyJapan(); }}>日本に近づいて見る</button>}
       <details style={{ marginTop: '14px' }}>
         <summary class="sub" style={{ cursor: 'pointer' }}>入力の一覧</summary>
         <div class="pin-list" style={{ marginTop: '8px' }}>
-          {pin.entries.map((e) => (
+          {all.map((e) => (
             <div class="pin-item" key={e.id}>
               <span class="nm" style={{ fontWeight: 600 }}>{e.fishName}<span class="sub">　{e.group}班・{e.method === 'farmed' ? '養殖' : e.method === 'wild' ? '天然' : '―'}</span></span>
               {canDel(e) && <button class="del" onClick={() => deleteEntry(e)}>けす</button>}

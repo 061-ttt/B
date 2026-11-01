@@ -19,7 +19,7 @@ export type MapMode = 'detail' | 'world';
 export interface Layers { currents: boolean; depth: boolean; labels: boolean }
 export interface GlobeData { globe: { polys: number[][][]; japanFrom: number }; patch: { bbox: [number, number, number, number]; polys: number[][][] } }
 
-interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'pin' | 'ghost'; near?: boolean; far?: boolean }
+interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'pin' | 'ghost'; near?: boolean; far?: boolean; dy?: number; hidden?: boolean }
 interface Flow { curve: THREE.CatmullRomCurve3; len: number; n: number; spacing: number; kind: OceanCurrent['kind']; warmIdx: number[]; coldIdx: number[] }
 
 export function lonLatTo(lon: number, lat: number, r = R, out = new THREE.Vector3()): THREE.Vector3 {
@@ -371,9 +371,11 @@ export class Globe {
         el.type = 'button';
         el.className = 'pin rise';
         el.dataset.key = pin.key;
+        el.dataset.place = pin.placeKey;
+        el.dataset.fish = pin.fishKey;
         el.addEventListener('click', (e) => { e.stopPropagation(); const r = this.pins.get(pin.key); if (r) this.onPinTap(r.pin); });
         this.pinLayer.appendChild(el);
-        const onSea = PLACE_BY_ID.get(pin.key)?.kind === 'sea';
+        const onSea = PLACE_BY_ID.get(pin.placeKey)?.kind === 'sea';
         const base = lonLatTo(pin.lon, pin.lat, onSea ? CUR_R : R + LAND_H + 0.05);
         const normal = base.clone().normalize();
         const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
@@ -389,7 +391,7 @@ export class Globe {
       } else if (rec.pin.count !== pin.count) {
         rec.el.classList.remove('bump'); void rec.el.offsetWidth; rec.el.classList.add('bump');
       }
-      rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${iconSvg(f?.icon ?? 'fish', color, 30)}<span class="pin-name">${esc(top.name)}${pin.fish.length > 1 ? `<small>ほか${pin.fish.length - 1}</small>` : ''}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
+      rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${iconSvg(f?.icon ?? 'fish', color, 30)}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
       rec.el.style.setProperty('--s', String(pinScale(pin.count)));
       rec.el.setAttribute('aria-label', `${pin.name}：${pin.fish.map((x) => `${x.name}${x.count}件`).join('、')}`);
       (rec.stem.material as THREE.MeshBasicMaterial).color.set(color);
@@ -398,6 +400,27 @@ export class Globe {
       rec.el.classList.toggle('dim', !!dimKeys && !dimKeys.has(pin.key));
     }
     for (const [k, r] of this.pins) if (!seen.has(k)) { r.el.remove(); this.pinGroup.remove(r.stem, r.ring); this.pins.delete(k); }
+    // 同じ産地の魚は、画面の上で縦に積んで1つずつ見えるようにする（多い魚ほど下＝産地の近く）
+    const groups = new Map<string, typeof this.pins extends Map<string, infer V> ? V[] : never>();
+    for (const r of this.pins.values()) {
+      const g = groups.get(r.pin.placeKey) ?? [];
+      g.push(r);
+      groups.set(r.pin.placeKey, g);
+    }
+    const maxStack = this.mode === 'world' ? 4 : 6;
+    for (const g of groups.values()) {
+      g.sort((a, b) => b.pin.count - a.pin.count || a.pin.fishKey.localeCompare(b.pin.fishKey));
+      let dy = 0;
+      g.forEach((r, i) => {
+        r.label.dy = dy;
+        r.label.hidden = i >= maxStack;
+        r.el.classList.toggle('stacked', i > 0);
+        r.el.dataset.more = i === maxStack - 1 && g.length > maxStack ? `ほか${g.length - maxStack}種` : '';
+        // 茎と輪は先頭（いちばん多い魚）だけ見せる
+        r.stem.visible = r.ring.visible = i === 0;
+        dy += 30 * pinScale(r.pin.count) + 6;
+      });
+    }
   }
 
   setGhosts(ids: string[]) {
@@ -511,10 +534,11 @@ export class Globe {
       this.sp.copy(l.pos).project(this.camera);
       const x = (this.sp.x * 0.5 + 0.5) * w, y = (-this.sp.y * 0.5 + 0.5) * h;
       const off = facing < 0.12 || x < -80 || x > w + 80 || y < -80 || y > h + 80;
-      l.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+      const yy = y - (l.dy ?? 0);
+      l.el.style.transform = `translate3d(${x.toFixed(1)}px,${yy.toFixed(1)}px,0)`;
       if (l.kind === 'pin') {
-        l.el.style.zIndex = String(Math.round(y));
-        l.el.style.visibility = off ? 'hidden' : '';
+        l.el.style.zIndex = String(Math.round(y) * 10 - Math.round((l.dy ?? 0) / 30));
+        l.el.style.visibility = off || l.hidden ? 'hidden' : '';
         continue;
       }
       if (!collide) continue;

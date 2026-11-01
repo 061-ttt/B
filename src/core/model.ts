@@ -19,12 +19,14 @@ export type FilterId = 'all' | 'domestic' | 'overseas' | 'wild' | 'farmed' | 'wa
 
 export interface PinFish { id: string | null; name: string; count: number }
 export interface Pin {
-  key: string;
-  name: string;
+  key: string;        // 産地＋魚（例：hokkaido|salmon）
+  placeKey: string;   // 産地（引いて見るときの国内は japan）
+  fishKey: string;
+  name: string;       // 産地名
   lat: number;
   lon: number;
   count: number;
-  fish: PinFish[];
+  fish: PinFish[];    // このピンの魚（1種類）
   domestic: boolean;
   entries: Entry[];
 }
@@ -51,31 +53,30 @@ export function matches(e: Entry, f: FilterId, focusFish: string | null): boolea
   }
 }
 
-/** 地図のピンをつくる。近くで見るときは産地ごと、遠くから見るときは国内を「日本」1本にまとめる */
+/** 地図のピンをつくる。同じ産地でも魚の種類ごとに別のピンにする。
+ *  遠くから見るとき（world）は、国内の産地を「日本」にまとめる（魚の種類ごとには分けたまま） */
 export function aggregate(entries: Entry[], view: ViewId): Pin[] {
   const map = new Map<string, Pin>();
   for (const e of entries) {
     const p = placeOf(e);
     if (!p) continue;
     const collapse = view === 'world' && p.domestic;
-    const key = collapse ? 'japan' : p.id;
+    const placeKey = collapse ? 'japan' : p.id;
+    const fishKey = e.fishId ?? `x:${e.fishName}`;
+    const key = `${placeKey}|${fishKey}`;
     let pin = map.get(key);
     if (!pin) {
+      const name = fishOf(e)?.name ?? e.fishName;
       pin = collapse
-        ? { key, name: '日本', lat: JAPAN_POINT.lat, lon: JAPAN_POINT.lon, count: 0, fish: [], domestic: true, entries: [] }
-        : { key, name: p.name, lat: p.lat, lon: p.lon, count: 0, fish: [], domestic: p.domestic, entries: [] };
+        ? { key, placeKey, fishKey, name: '日本', lat: JAPAN_POINT.lat, lon: JAPAN_POINT.lon, count: 0, fish: [{ id: e.fishId, name, count: 0 }], domestic: true, entries: [] }
+        : { key, placeKey, fishKey, name: p.name, lat: p.lat, lon: p.lon, count: 0, fish: [{ id: e.fishId, name, count: 0 }], domestic: p.domestic, entries: [] };
       map.set(key, pin);
     }
     pin.count++;
+    pin.fish[0].count++;
     pin.entries.push(e);
-    const fk = e.fishId ?? e.fishName;
-    const pf = pin.fish.find((x) => (x.id ?? x.name) === fk);
-    if (pf) pf.count++;
-    else pin.fish.push({ id: e.fishId, name: fishOf(e)?.name ?? e.fishName, count: 1 });
   }
-  const pins = [...map.values()];
-  for (const p of pins) p.fish.sort((a, b) => b.count - a.count);
-  return pins.sort((a, b) => b.count - a.count);
+  return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
 /** ピンの大きさ：件数の平方根で大きくする（面積が件数に比例） */

@@ -78,15 +78,25 @@ describe('教材データの整合性', () => {
 
 describe('集計', () => {
   const es = [E('a', 'salmon', 'hokkaido', 'wild'), E('b', 'salmon', 'hokkaido'), E('c', 'saury', 'kushiro'), E('d', 'salmon', 'chile', 'farmed'), E('e', 'shrimp', 'vietnam', 'farmed'), E('f', 'mackerel', 'norway')];
-  it('近くで見るときは産地ごと、同じ産地はまとまる', () => {
+  it('同じ産地でも魚の種類ごとに別のピン、同じ魚はまとまる', () => {
     const p = aggregate(es, 'detail');
-    expect(p.map((x) => x.key).sort()).toEqual(['chile', 'hokkaido', 'kushiro', 'norway', 'vietnam']);
-    expect(p.find((x) => x.key === 'hokkaido')!.count).toBe(2);
+    const hk = p.filter((x) => x.placeKey === 'hokkaido');
+    expect(hk.map((x) => x.key).sort()).toEqual(['hokkaido|salmon']);
+    expect(hk[0].count).toBe(2);
+    const more = aggregate([...es, E('g', 'scallop', 'hokkaido')], 'detail').filter((x) => x.placeKey === 'hokkaido');
+    expect(more.map((x) => x.fishKey).sort()).toEqual(['salmon', 'scallop']);
+    expect(p.length).toBe(5);
   });
-  it('引いて見るときは国内を「日本」1本にまとめる', () => {
+  it('引いて見るときは国内を「日本」にまとめ、魚の種類ごとには分けたまま', () => {
     const p = aggregate(es, 'world');
-    expect(p.find((x) => x.key === 'japan')!.count).toBe(3);
-    expect(p.length).toBe(4);
+    const jp = p.filter((x) => x.placeKey === 'japan');
+    expect(jp.map((x) => x.fishKey).sort()).toEqual(['salmon', 'saury']);
+    expect(jp.find((x) => x.fishKey === 'salmon')!.count).toBe(2);
+    expect(p.length).toBe(5);
+  });
+  it('図鑑にない魚も名前ごとに分かれる', () => {
+    const p = aggregate([E('n1', null, 'nagasaki', 'unknown', 'のどぐろ'), E('n2', null, 'nagasaki', 'unknown', 'きびなご')], 'detail');
+    expect(p.length).toBe(2);
   });
   it('件数が多いほどピンは大きい（上限あり）', () => {
     expect(pinScale(4)).toBeGreaterThan(pinScale(1));
