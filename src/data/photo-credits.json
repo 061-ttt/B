@@ -1,1 +1,176 @@
-{}
+{
+ "mackerel": {
+  "file": "Scombe_japo_130302-34404_tdp.JPG",
+  "license": "CC BY-SA 3.0",
+  "author": "Wibowo Djatmiko (Wie146)",
+  "page": "https://commons.wikimedia.org/wiki/File:Scombe_japo_130302-34404_tdp.JPG"
+ },
+ "salmon": {
+  "file": "Oncorhynchus_keta_336282130.jpg",
+  "license": "CC0",
+  "author": "Focus Saranpat Ouilapan",
+  "page": "https://commons.wikimedia.org/wiki/File:Oncorhynchus_keta_336282130.jpg"
+ },
+ "horse-mackerel": {
+  "file": "MaAji.jpg",
+  "license": "CC BY 2.5",
+  "author": "Izuzuki",
+  "page": "https://commons.wikimedia.org/wiki/File:MaAji.jpg"
+ },
+ "sardine": {
+  "file": "Sardinops_melanostictus.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Sardinops_melanostictus.jpg"
+ },
+ "saury": {
+  "file": "Cololabis_saira_in_a_tank.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "出羽雀台",
+  "page": "https://commons.wikimedia.org/wiki/File:Cololabis_saira_in_a_tank.jpg"
+ },
+ "tuna": {
+  "file": "Thunnus_orientalis_(Osaka_Kaiyukan_Aquarium).jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "OpenCage",
+  "page": "https://commons.wikimedia.org/wiki/File:Thunnus_orientalis_%28Osaka_Kaiyukan_Aquarium%29.jpg"
+ },
+ "bonito": {
+  "file": "Skipjack_tuna_shoal.jpg",
+  "license": "Public domain",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Skipjack_tuna_shoal.jpg"
+ },
+ "yellowtail": {
+  "file": "Seriola_quinqueradiata_(200810).jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "E-190's",
+  "page": "https://commons.wikimedia.org/wiki/File:Seriola_quinqueradiata_%28200810%29.jpg"
+ },
+ "seabream": {
+  "file": "Pagrus_major_ioworld.jpg",
+  "license": "CC0",
+  "author": "タウナギ",
+  "page": "https://commons.wikimedia.org/wiki/File:Pagrus_major_ioworld.jpg"
+ },
+ "cod": {
+  "file": "Gadus_macrocephalus_Kamo_4.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Totti",
+  "page": "https://commons.wikimedia.org/wiki/File:Gadus_macrocephalus_Kamo_4.jpg"
+ },
+ "atka": {
+  "file": "Pleurogrammus_azonus.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "Daiju Azuma",
+  "page": "https://commons.wikimedia.org/wiki/File:Pleurogrammus_azonus.jpg"
+ },
+ "flatfish": {
+  "file": "Paralichthys_olivaceus.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "Daiju Azuma",
+  "page": "https://commons.wikimedia.org/wiki/File:Paralichthys_olivaceus.jpg"
+ },
+ "capelin": {
+  "file": "20250524_Mallotus_villosus_fish.jpg",
+  "license": "CC0",
+  "author": "Rakoon",
+  "page": "https://commons.wikimedia.org/wiki/File:20250524_Mallotus_villosus_fish.jpg"
+ },
+ "shrimp": {
+  "file": "Litopenaeus_vannamei_specimen.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "Herman Gunawan, Bangka, Indonesia.",
+  "page": "https://commons.wikimedia.org/wiki/File:Litopenaeus_vannamei_specimen.jpg"
+ },
+ "squid": {
+  "file": "Todarodes_pacificus_(white_background).jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Todarodes_pacificus_%28white_background%29.jpg"
+ },
+ "octopus": {
+  "file": "Common_octopus_Octopus_vulgaris_(4681009628).jpg",
+  "license": "CC BY 2.0",
+  "author": "Paul Asman and Jill Lenoble",
+  "page": "https://commons.wikimedia.org/wiki/File:Common_octopus_Octopus_vulgaris_%284681009628%29.jpg"
+ },
+ "scallop": {
+  "file": "Japan_sea_animal,_Ezo_giant_scallop_(Mizuhopecten_yessoensis)_(15152229484).jpg",
+  "license": "CC BY-SA 2.0",
+  "author": "harum.koh from Kobe city, Japan",
+  "page": "https://commons.wikimedia.org/wiki/File:Japan_sea_animal%2C_Ezo_giant_scallop_%28Mizuhopecten_yessoensis%29_%2815152229484%29.jpg"
+ },
+ "oyster": {
+  "file": "Pacific_oyster_from_Brofjorden_on_a_chopping_board_in_Tuntorp.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "W.carter",
+  "page": "https://commons.wikimedia.org/wiki/File:Pacific_oyster_from_Brofjorden_on_a_chopping_board_in_Tuntorp.jpg"
+ },
+ "clam": {
+  "file": "Ruditapes_philippinarum.jpg",
+  "license": "Public domain",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Ruditapes_philippinarum.jpg"
+ },
+ "eel": {
+  "file": "Anguilla_japonica.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "opencage",
+  "page": "https://commons.wikimedia.org/wiki/File:Anguilla_japonica.jpg"
+ },
+ "crab": {
+  "file": "Chionoecetes_opilio_Kanikkokan.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Totti",
+  "page": "https://commons.wikimedia.org/wiki/File:Chionoecetes_opilio_Kanikkokan.jpg"
+ },
+ "ikura": {
+  "file": "Ikura_salmon_roe_Hokkaido_02.jpg",
+  "license": "CC0",
+  "author": "KQuhen",
+  "page": "https://commons.wikimedia.org/wiki/File:Ikura_salmon_roe_Hokkaido_02.jpg"
+ },
+ "pollock-roe": {
+  "file": "Myeongnanjeot_(pollock_roe).jpg",
+  "license": "CC BY 4.0",
+  "author": "kyungeun",
+  "page": "https://commons.wikimedia.org/wiki/File:Myeongnanjeot_%28pollock_roe%29.jpg"
+ },
+ "urchin": {
+  "file": "Strongylocentrotus_intermedius_1.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Totti",
+  "page": "https://commons.wikimedia.org/wiki/File:Strongylocentrotus_intermedius_1.jpg"
+ },
+ "wakame": {
+  "file": "Undaria_pinnatifida_-_National_Museum_of_Nature_and_Science,_Tokyo_-_DSC07616.JPG",
+  "license": "CC0",
+  "author": "Daderot",
+  "page": "https://commons.wikimedia.org/wiki/File:Undaria_pinnatifida_-_National_Museum_of_Nature_and_Science%2C_Tokyo_-_DSC07616.JPG"
+ },
+ "nori": {
+  "file": "Nori.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "Alice Wiegand, (Lyzzy)",
+  "page": "https://commons.wikimedia.org/wiki/File:Nori.jpg"
+ },
+ "kombu": {
+  "file": "Kelp_in_Neskowin.jpg",
+  "license": "CC BY 2.0",
+  "author": "Anna Maj Michelson, Portland, United States",
+  "page": "https://commons.wikimedia.org/wiki/File:Kelp_in_Neskowin.jpg"
+ },
+ "shirasu": {
+  "file": "Chirimenjako_(zoom).JPG",
+  "license": "CC BY-SA 4.0",
+  "author": "Alpsdake",
+  "page": "https://commons.wikimedia.org/wiki/File:Chirimenjako_%28zoom%29.JPG"
+ },
+ "herring": {
+  "file": "Clupea_pallasii_by_OpenCage.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Clupea_pallasii_by_OpenCage.jpg"
+ }
+}

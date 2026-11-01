@@ -121,6 +121,7 @@ test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別�
   const salmon = page.locator('.pin[data-key="hokkaido|salmon"]');
   await expect(salmon).toBeVisible();
   await expect(salmon.locator('.pin-name')).toContainText('さけ');
+  await expect(salmon.locator('img.pin-photo')).toHaveJSProperty('complete', true);
   await expect(salmon.locator('.pin-count')).toHaveText('1');
   const s1 = Number(await salmon.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
   await addEntry(page, 'さけ', 'ほっかいどう');
@@ -216,6 +217,12 @@ test('7. 図鑑のアコーディオンと地図の連動', async ({ page }) => 
   await head.click();
   await expect(head).toHaveAttribute('aria-expanded', 'true');
   await expect(item.locator('.why')).toBeVisible();
+  // 実際の写真と出典
+  const hero = item.locator('.hero img');
+  await expect(hero).toBeVisible();
+  await expect.poll(() => hero.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(300);
+  await expect(item.locator('.hero figcaption')).toContainText('CC');
+  await expect(page.locator('[data-fish=salmon] .ic.photo img')).toBeAttached();
   await expect(item).toContainText('ノルウェー');
   await expect.poll(async () => (await item.locator('.acc-body').boundingBox())!.height).toBeGreaterThan(150);
   await head.click();

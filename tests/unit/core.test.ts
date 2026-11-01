@@ -7,6 +7,8 @@ import { aggregate, factLines, localQuestions, matches, pinScale, stats, type En
 import { lonLatTo, toLonLat, R } from '../../src/map/globe';
 import globe from '../../src/data/land-globe.json';
 import jpatch from '../../src/data/land-jpatch.json';
+import credits from '../../src/data/photo-credits.json';
+const assets = import.meta.glob('../../src/assets/fish/*.webp');
 import { sanitize } from '../../worker/sanitize';
 
 const E = (id: string, fishId: string | null, placeId: string, method: Entry['method'] = 'unknown', fishName = fishId ?? '?'): Entry =>
@@ -73,6 +75,18 @@ describe('教材データの整合性', () => {
     expect(jp.some((c) => c.kind === 'warm' && c.name.includes('黒潮'))).toBe(true);
     expect(jp.some((c) => c.kind === 'cold' && c.name.includes('親潮'))).toBe(true);
     expect(jp.some((c) => c.kind === 'meet')).toBe(true);
+  });
+});
+
+describe('魚の写真', () => {
+  it('図鑑の全種に写真があり、教材に使えるライセンスで出典がある', () => {
+    const c = credits as Record<string, { file: string; license: string; page: string }>;
+    for (const f of FISH) {
+      expect(c[f.id], f.id).toBeTruthy();
+      expect(c[f.id].license, f.id).toMatch(/public domain|cc0|cc by/i);
+      expect(c[f.id].page).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+      for (const s of ['', '-s']) expect(`../../src/assets/fish/${f.id}${s}.webp` in assets, `${f.id}${s}`).toBe(true);
+    }
   });
 });
 
