@@ -15,6 +15,18 @@ const PATHS: Record<Icon, string> = {
   eel: '<path d="M3 18c6-6 12-6 18-2s12 4 18-2c3-3 6-3 7 0-3 0-4 2-7 5-6 6-14 6-20 2s-10-4-16-1z"/><circle cx="41" cy="14.5" r="1.2" fill="#000" fill-opacity=".55"/>',
 };
 
+let seq = 0;
+function mix(hex: string, to: number, t: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (to - v) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+/** 立体感のあるアイコン：上から光が当たったグラデーション＋つや */
 export function iconSvg(icon: Icon, color: string, size = 28): string {
-  return `<svg viewBox="0 0 48 32" width="${size}" height="${Math.round(size * 0.667)}" fill="${color}" style="color:${color}" aria-hidden="true">${PATHS[icon]}</svg>`;
+  const id = `ig${(seq++).toString(36)}`;
+  const body = PATHS[icon].match(/^<[^>]+>/)?.[0] ?? '';
+  return `<svg viewBox="0 0 48 32" width="${size}" height="${Math.round(size * 0.667)}" fill="url(#${id})" style="color:${color};overflow:visible" aria-hidden="true">`
+    + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix(color, 255, 0.5)}"/><stop offset=".55" stop-color="${color}"/><stop offset="1" stop-color="${mix(color, 0, 0.45)}"/></linearGradient>`
+    + `<radialGradient id="${id}h" cx=".35" cy=".2" r=".55"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`
+    + `${PATHS[icon]}<g fill="url(#${id}h)">${body}</g></svg>`;
 }

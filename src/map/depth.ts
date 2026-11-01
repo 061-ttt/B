@@ -1,7 +1,6 @@
-// 海の深さのグラデーション（教材用の模式）。
+// 海の深さのグラデーション（教材用の模式）。正距円筒の画像として作り、地球儀にはる。
 // 海岸からの距離で「細い大陸棚 → 大陸斜面 → 深海」を作り、幅の広い大陸棚と海溝を重ねる。
-import { SHELVES, TRENCHES, TROUGHS } from '../data/ocean';
-import type { LandData, Projector, XY } from '../geo/project';
+import { SHELVES, TRENCHES, TROUGHS, type LonLat } from '../data/ocean';
 
 export const DEPTH_STOPS: [number, string][] = [
   [0, '#45abc4'],
@@ -84,56 +83,75 @@ function rasterize(w: number, h: number, sx: number, draw: (ctx: CanvasRendering
   return m;
 }
 
-function polyPath(ctx: CanvasRenderingContext2D, rings: XY[][]) {
-  for (const r of rings) {
-    ctx.moveTo(r[0][0], r[0][1]);
-    for (let i = 1; i < r.length; i++) ctx.lineTo(r[i][0], r[i][1]);
-    ctx.closePath();
-  }
+export interface DepthOpts {
+  polys: number[][][];        // 陸地（経度・緯度の平らな配列）
+  bbox: [number, number, number, number]; // 西, 南, 東, 北
+  w: number;
+  h: number;
+  shelfKm: number;
+  slopeKm: number;
+  wrap?: boolean;             // 全球（東西がつながる）
+  fade?: number;              // 縁を透明にする幅（画素）
+  land?: string;              // 陸の色
 }
 
-/** 深さ（m）の格子と、それを色にしたキャンバスを返す */
-export function buildBathymetry(land: LandData, proj: Projector, view: 'japan' | 'world') {
-  const res = view === 'japan' ? 0.55 : 0.5; // 投影単位あたりの画素
-  const w = Math.round(land.W * res), h = Math.round(land.H * res);
-  // km / 画素（おおよそ）
-  const kmPerPx = view === 'japan' ? 2.75 / res : 20 / res;
+/** 深さの画像を作る */
+export function buildDepth(o: DepthOpts) {
+  const [W0, S0, E0, N0] = o.bbox;
+  const { w, h } = o;
+  const sx = w / (E0 - W0), sy = h / (N0 - S0);
+  const X = (lon: number) => (lon - W0) * sx;
+  const Y = (lat: number) => (N0 - lat) * sy;
+  const kmPerPx = 111.2 / sy;
+  const offsets = o.wrap ? [0, -360, 360] : [0];
 
-  const landMask = rasterize(w, h, res, (ctx) => {
+  // 経度を前の点から180度以内に保って連続にする（日付変更線をまたぐ形のため）
+  const unwrap = (pts: LonLat[]): LonLat[] => {
+    const out: LonLat[] = [];
+    let prev: number | null = null;
+    for (const [lo0, la] of pts) {
+      let lo = ((lo0 + 540) % 360) - 180;
+      if (prev !== null) { while (lo - prev > 180) lo -= 360; while (lo - prev < -180) lo += 360; }
+      out.push([lo, la]);
+      prev = lo;
+    }
+    // 範囲の中心に寄せる
+    const mid = (W0 + E0) / 2;
+    const c = out.reduce((s, p) => s + p[0], 0) / out.length;
+    const shift = Math.round((mid - c) / 360) * 360;
+    return out.map(([lo, la]) => [lo + shift, la]);
+  };
+  const drawPath = (ctx: CanvasRenderingContext2D, pts: LonLat[], close: boolean) => {
+    const u = unwrap(pts);
+    for (const off of offsets) {
+      ctx.moveTo(X(u[0][0] + off), Y(u[0][1]));
+      for (let i = 1; i < u.length; i++) ctx.lineTo(X(u[i][0] + off), Y(u[i][1]));
+      if (close) ctx.closePath();
+    }
+  };
+
+  const landMask = rasterize(w, h, 1, (ctx) => {
     ctx.beginPath();
-    for (const poly of land.polys) {
-      const rings = poly.map((r) => { const o: XY[] = []; for (let i = 0; i < r.length; i += 2) o.push([r[i], r[i + 1]]); return o; });
-      polyPath(ctx, rings);
+    for (const poly of o.polys) for (const r of poly) {
+      ctx.moveTo(X(r[0]), Y(r[1]));
+      for (let i = 2; i < r.length; i += 2) ctx.lineTo(X(r[i]), Y(r[i + 1]));
+      ctx.closePath();
     }
     ctx.fill('evenodd');
   });
-
-  const shelfMask = rasterize(w, h, res, (ctx) => {
+  const shelfMask = rasterize(w, h, 1, (ctx) => {
     ctx.beginPath();
-    for (const s of SHELVES) for (const seg of proj.path([...s, s[0]])) polyPath(ctx, [seg]);
+    for (const s of SHELVES) drawPath(ctx, s, true);
     ctx.fill();
   });
-
-  const trenchMask = rasterize(w, h, res, (ctx) => {
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.lineWidth = view === 'japan' ? 3 : 2.5;
+  const line = (paths: LonLat[][], width: number) => rasterize(w, h, 1, (ctx) => {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = width;
     ctx.beginPath();
-    for (const t of TRENCHES) if (t.view.includes(view)) for (const seg of proj.path(t.path)) {
-      ctx.moveTo(seg[0][0], seg[0][1]);
-      for (const p of seg.slice(1)) ctx.lineTo(p[0], p[1]);
-    }
+    for (const p of paths) drawPath(ctx, p, false);
     ctx.stroke();
   });
-
-  const troughMask = rasterize(w, h, res, (ctx) => {
-    ctx.lineCap = 'round'; ctx.lineWidth = view === 'japan' ? 3 : 1.5;
-    ctx.beginPath();
-    for (const t of TROUGHS) for (const seg of proj.path(t)) {
-      ctx.moveTo(seg[0][0], seg[0][1]);
-      for (const p of seg.slice(1)) ctx.lineTo(p[0], p[1]);
-    }
-    ctx.stroke();
-  });
+  const trenchMask = line(TRENCHES.map((t) => t.path), Math.max(2, 18 / kmPerPx));
+  const troughMask = line(TROUGHS, Math.max(1.5, 12 / kmPerPx));
 
   const src = new Uint8Array(w * h);
   for (let i = 0; i < src.length; i++) src[i] = landMask[i] || shelfMask[i] ? 1 : 0;
@@ -142,29 +160,23 @@ export function buildBathymetry(land: LandData, proj: Projector, view: 'japan' |
   const dTrench = distance(trenchMask, w, h);
   const dTrough = distance(troughMask, w, h);
 
-  const shelfKm = view === 'japan' ? 14 : 45, slopeKm = view === 'japan' ? 70 : 140;
   const depth = new Float32Array(w * h);
   for (let i = 0; i < depth.length; i++) {
     if (landMask[i]) { depth[i] = -1; continue; }
     const km = dCoast[i] * kmPerPx;
     let d: number;
-    if (shelfMask[i] || km < shelfKm) {
-      // 大陸棚：陸に近いほど浅い
-      const near = Math.min(1, (dLand[i] * kmPerPx) / 120);
-      d = 30 + 160 * near;
-    } else if (km < shelfKm + slopeKm) {
-      const t = (km - shelfKm) / slopeKm;
-      d = 200 + (4300 - 200) * (t * t * (3 - 2 * t));
+    if (shelfMask[i] || km < o.shelfKm) {
+      d = 30 + 160 * Math.min(1, (dLand[i] * kmPerPx) / 120);
+    } else if (km < o.shelfKm + o.slopeKm) {
+      const t = (km - o.shelfKm) / o.slopeKm;
+      d = 200 + 4100 * (t * t * (3 - 2 * t));
     } else {
-      // 深海底：ゆるやかなうねり
       const x = i % w, y = (i / w) | 0;
-      d = 4400 + 500 * Math.sin(x * 0.045) * Math.cos(y * 0.05) + 300 * Math.sin((x + y) * 0.021);
+      const lon = W0 + x / sx, lat = N0 - y / sy;
+      d = 4500 + 260 * Math.sin(lon * 0.11 + Math.sin(lat * 0.07) * 2) * Math.cos(lat * 0.13);
     }
     const tKm = dTrench[i] * kmPerPx;
-    if (tKm < 140) {
-      const k = 1 - tKm / 140;
-      d = Math.max(d, d + (9000 - d) * k * k);
-    }
+    if (tKm < 140) { const k = 1 - tKm / 140; d = d + (9000 - d) * k * k; }
     const trKm = dTrough[i] * kmPerPx;
     if (trKm < 60) d = Math.max(d, 3600 + 800 * (1 - trKm / 60));
     depth[i] = d;
@@ -174,19 +186,22 @@ export function buildBathymetry(land: LandData, proj: Projector, view: 'japan' |
   cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d')!;
   const img = ctx.createImageData(w, h);
+  const land = hex(o.land ?? '#2f3a35');
+  const fade = o.fade ?? 0;
   for (let i = 0; i < depth.length; i++) {
     const d = depth[i];
-    const o = i * 4;
-    if (d < 0) { img.data[o] = 30; img.data[o + 1] = 70; img.data[o + 2] = 80; img.data[o + 3] = 255; continue; }
+    const p = i * 4;
+    const x = i % w, y = (i / w) | 0;
+    let a = 255;
+    if (fade) a = Math.round(255 * Math.min(1, x / fade, (w - 1 - x) / fade, y / fade, (h - 1 - y) / fade));
+    img.data[p + 3] = a;
+    if (d < 0) { img.data[p] = land[0]; img.data[p + 1] = land[1]; img.data[p + 2] = land[2]; continue; }
     let [r, g, b] = depthColor(d);
-    // 大陸棚の縁（200m）をうっすら強調
-    const x = i % w;
-    if (x > 0 && x < w - 1 && i > w && i < depth.length - w) {
-      const n = [depth[i - 1], depth[i + 1], depth[i - w], depth[i + w]];
-      if (d <= 200 && n.some((v) => v > 200)) { r += 22; g += 30; b += 34; }
+    if (x > 0 && x < w - 1 && y > 0 && y < h - 1 && d <= 200) {
+      if (depth[i - 1] > 200 || depth[i + 1] > 200 || depth[i - w] > 200 || depth[i + w] > 200) { r += 22; g += 30; b += 34; }
     }
-    img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+    img.data[p] = r; img.data[p + 1] = g; img.data[p + 2] = b;
   }
   ctx.putImageData(img, 0, 0);
-  return { canvas: cv, depth, w, h, res };
+  return { canvas: cv, w, h };
 }

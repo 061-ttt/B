@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import qrcode from 'qrcode-generator';
 import { BottomSheet } from './Sheet';
-import { aiOk, device, entries, focusFish, group, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey, view } from '../state';
+import { aiOk, device, entries, focusFish, group, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey } from '../state';
 import { addEntry, aiParse, createRoom, deleteEntry, joinRoom } from '../core/sync';
 import { parseTag, suggestFish, findFish, type Method } from '../data/parse';
 import { findPlace, suggestPlaces, PLACE_BY_ID, type Place } from '../data/places';
+
+// よく使う産地（ワンタップで選べる）
+const QUICK_PLACES = ['hokkaido', 'aomori', 'miyagi', 'chiba', 'shizuoka', 'nagasaki', 'kagoshima', 'norway', 'chile', 'china', 'vietnam', 'usa', 'russia'];
 import { FISH, FISH_BY_ID, type Fish } from '../data/fish';
 import { iconSvg } from './icons';
 import { G } from './Glyph';
 import { uid } from '../core/model';
-import { pinsNow } from './MapView';
-import { DEPTH_LEGEND } from '../map/bathy';
+import { pinsNow, globe } from './MapView';
+import { DEPTH_LEGEND } from '../map/depth';
 import { openFish } from './Zukan';
 
 export function Sheets() {
@@ -100,8 +103,8 @@ function AddForm() {
 
   return (
     <div>
-      <h3>魚と産地</h3>
-      <label class="field-l" for="tag">値札の文字（そのまま入れてOK）</label>
+      <h3><span class="em">魚</span>と産地を入力</h3>
+      <label class="field-l" for="tag"><span class="num" style={{ '--n': 'var(--violet)' }}>01</span>値札の文字をそのまま（なくてもOK）</label>
       <div class="inp-row">
         <input id="tag" class="inp" value={tag} placeholder="例：チリ産 銀鮭 養殖" onInput={(e) => setTag((e.target as HTMLInputElement).value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) runParse(tag); }} data-testid="tag-input" />
@@ -115,7 +118,7 @@ function AddForm() {
         </div>
       )}
 
-      <label class="field-l" for="fishq">魚の種類</label>
+      <label class="field-l" for="fishq"><span class="num" style={{ '--n': 'var(--blue)' }}>02</span>魚の種類</label>
       <input id="fishq" class="inp" value={fishQ} placeholder="さけ、さば、えび…" onInput={(e) => { setFishQ((e.target as HTMLInputElement).value); setFish(null); }} data-testid="fish-input" autocomplete="off" />
       <div class="sugg" role="listbox" aria-label="魚の候補">
         {fishList.map((f) => (
@@ -124,9 +127,16 @@ function AddForm() {
         ))}
       </div>
 
-      <label class="field-l" for="placeq">産地</label>
+      <label class="field-l" for="placeq"><span class="num" style={{ '--n': 'var(--green)' }}>03</span>産地</label>
       <input id="placeq" class="inp" value={placeQ} placeholder="北海道、銚子、ノルウェー、太平洋…" onInput={(e) => { const v = (e.target as HTMLInputElement).value; setPlaceQ(v); setPlace(null); }}
         onBlur={() => { if (!place && placeQ) { const p = findPlace(placeQ); if (p) { setPlace(p); setPlaceQ(p.name); } } }} data-testid="place-input" autocomplete="off" />
+      {!placeQ && (
+        <div class="sugg places" role="listbox" aria-label="よく使う産地">
+          {QUICK_PLACES.map((id) => PLACE_BY_ID.get(id)!).map((p) => (
+            <button key={p.id} role="option" aria-selected={false} onClick={() => { setPlace(p); setPlaceQ(p.name); }}>{p.name}<span class="kd">{p.domestic ? '国内' : '外国'}</span></button>
+          ))}
+        </div>
+      )}
       {placeList.length > 0 && (
         <div class="sugg" role="listbox" aria-label="産地の候補">
           {placeList.map((p) => (
@@ -137,9 +147,9 @@ function AddForm() {
         </div>
       )}
       {placeQ && !place && placeList.length === 0 && <p class="hint">見つからないときは、県の名前や国の名前で入れてみよう。</p>}
-      {place && <p class="hint" data-testid="place-ok">✓ {place.name}（{place.kind === 'country' ? '外国' : place.domestic ? '国内' : '遠くの海'}）</p>}
+      {place && <p class="hint ok-line" data-testid="place-ok">✓ {place.name}（{place.kind === 'country' ? '外国' : place.domestic ? '国内' : '遠くの海'}）</p>}
 
-      <label class="field-l">とり方</label>
+      <label class="field-l"><span class="num" style={{ '--n': 'var(--amber)' }}>04</span>とり方</label>
       <div class="seg glass" style={{ display: 'flex' }}>
         <SegThumb idx={['wild', 'farmed', 'unknown'].indexOf(method)} n={3} />
         {(['wild', 'farmed', 'unknown'] as Method[]).map((m) => (
@@ -147,7 +157,7 @@ function AddForm() {
         ))}
       </div>
 
-      <label class="field-l">班</label>
+      <label class="field-l"><span class="num" style={{ '--n': 'var(--pink)' }}>05</span>班</label>
       <div class="groups">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((g) => <button key={g} aria-pressed={group.value === g} onClick={() => (group.value = g)}>{g}</button>)}
       </div>
@@ -170,7 +180,7 @@ function PinDetail({ k }: { k: string }) {
   return (
     <div>
       <h3>{pin.name} <span class="sub">{pin.count}件</span></h3>
-      {place && <p class="hint" style={{ marginTop: '-6px', marginBottom: '10px' }}>{place.kind === 'country' ? '外国' : place.kind === 'sea' ? (place.domestic ? '日本の近くの海' : '遠くの海（遠洋）') : '国内'}{k === 'japan' ? '（日本地図でくわしく見られます）' : ''}</p>}
+      {place && <p class="hint" style={{ marginTop: '-6px', marginBottom: '10px' }}>{place.kind === 'country' ? '外国' : place.kind === 'sea' ? (place.domestic ? '日本の近くの海' : '遠くの海（遠洋）') : '国内'}{k === 'japan' ? '（近づくと産地ごとに分かれます）' : ''}</p>}
       <div class="pin-list">
         {pin.fish.map((f) => {
           const d = f.id ? FISH_BY_ID.get(f.id) : undefined;
@@ -184,7 +194,7 @@ function PinDetail({ k }: { k: string }) {
           );
         })}
       </div>
-      {k === 'japan' && <button class="btn block" style={{ marginTop: '12px' }} onClick={() => { sheet.value = null; view.value = 'japan'; }}>日本地図で見る</button>}
+      {k === 'japan' && <button class="btn block" style={{ marginTop: '12px' }} onClick={() => { sheet.value = null; globe?.flyJapan(); }}>日本に近づいて見る</button>}
       <details style={{ marginTop: '14px' }}>
         <summary class="sub" style={{ cursor: 'pointer' }}>入力の一覧</summary>
         <div class="pin-list" style={{ marginTop: '8px' }}>
@@ -214,7 +224,7 @@ function RoomForm() {
   const st = mode.value;
   return (
     <div>
-      <h3>クラス</h3>
+      <h3><span class="em">クラス</span>で集める</h3>
       {room.value ? (
         <>
           <div class="code" data-testid="room-code">{room.value}</div>
@@ -232,7 +242,7 @@ function RoomForm() {
       ) : (
         <>
           <p class="sub" style={{ margin: '0 4px 8px' }}>いまは、この端末だけに保存しています。</p>
-          <label class="field-l" for="code">クラスコードで参加</label>
+          <label class="field-l" for="code"><span class="num" style={{ '--n': 'var(--cyan)' }}>01</span>クラスコードで参加</label>
           <div class="inp-row">
             <input id="code" class="inp" value={code} maxLength={6} placeholder="6文字" style={{ textTransform: 'uppercase', letterSpacing: '.2em', fontWeight: 800 }}
               onInput={(e) => setCode((e.target as HTMLInputElement).value.replace(/[^0-9a-z]/gi, '').toUpperCase())} data-testid="code-input" />
@@ -255,7 +265,7 @@ function Legend() {
   const set = (k: keyof typeof l) => (layers.value = { ...l, [k]: !l[k] });
   return (
     <div>
-      <h3>表示と凡例</h3>
+      <h3>表示と<span class="em">凡例</span></h3>
       {([['currents', '海流'], ['depth', '海の深さ'], ['labels', '海や海流の名前']] as const).map(([k, t]) => (
         <div class="toggle-row" key={k}>
           <span>{t}</span>
@@ -271,7 +281,7 @@ function Legend() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', fontSize: '11px', color: 'var(--sub)' }}>
           {DEPTH_LEGEND.map((d) => <div key={d.label}><b style={{ color: '#fff' }}>{d.ruby ? <ruby>{d.label}<rt>{d.ruby}</rt></ruby> : d.label}</b><br />{d.range}</div>)}
         </div>
-        <p class="hint">ピンは入力が多い産地ほど大きくなります。海流と深さは、地図帳などをもとにした目安の図です。</p>
+        <p class="hint">ピンは入力が多い産地ほど大きくなります。地球儀を引いて見ると、国内の産地は「日本」にまとまります。海流と深さは、地図帳などをもとにした目安の図です。</p>
       </div>
     </div>
   );

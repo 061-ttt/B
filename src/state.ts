@@ -15,9 +15,9 @@ export const device = (() => {
 })();
 
 // ── 画面 ──
-export type Tab = 'map' | 'zukan' | 'tasks' | 'sheet';
+export type Tab = 'map' | 'zukan' | 'sheet';
 export const tab = signal<Tab>('map');
-export const view = signal<ViewId>('japan');
+export const view = signal<ViewId>('world');
 export const filter = signal<FilterId>('all');
 export const focusFish = signal<string | null>(null);
 export const layers = signal(ls.get('sm.layers', { currents: true, depth: true, labels: true }));
@@ -66,60 +66,26 @@ export function removeEntry(id: string) {
   entries.value = entries.value.filter((x) => x.id !== id);
 }
 
-// ── メモ・タスク（フリックで進める） ──
-export type CardStatus = 'memo' | 'todo' | 'doing' | 'done';
-export interface Card { id: string; text: string; status: CardStatus; createdAt: number; updatedAt: number }
-export const STATUS: CardStatus[] = ['memo', 'todo', 'doing', 'done'];
-export const STATUS_LABEL: Record<CardStatus, string> = { memo: 'メモ', todo: 'やること', doing: 'とりくみ中', done: 'できた' };
+// ── メモ（index.html のメモ欄から、JS読み込み前でも追加される） ──
+export interface Memo { id: string; text: string; createdAt: number }
+function loadMemos(): Memo[] {
+  // 以前の版のタスク（やること・とりくみ中・できた）は削除し、メモだけ残す
+  const raw = ls.get<(Memo & { status?: string })[]>('sm.cards', []);
+  const memos = raw.filter((c) => !c.status || c.status === 'memo').map(({ id, text, createdAt }) => ({ id, text, createdAt }));
+  if (memos.length !== raw.length) ls.set('sm.cards', memos);
+  try { localStorage.removeItem('sm.seeded'); } catch { /* */ }
+  return memos;
+}
+export const memos = signal<Memo[]>(loadMemos());
+effect(() => ls.set('sm.cards', memos.value));
+window.addEventListener('sm:cards', () => { memos.value = loadMemos(); });
 
-const SEED: [string, CardStatus][] = [
-  ['値札の産地を確かめる', 'todo'],
-  ['魚と産地を地図に入力する', 'todo'],
-  ['分布を比べて分ける（国内・外国／天然・養殖）', 'todo'],
-  ['なぜその地域に集まるのか考える', 'todo'],
-  ['次に調べたいことを書く', 'todo'],
-];
-function initialCards(): Card[] {
-  const raw = localStorage.getItem('sm.cards');
-  if (raw == null || !ls.get('sm.seeded', false)) {
-    const now = Date.now();
-    const cur = ls.get<Card[]>('sm.cards', []);
-    const seeded = [...cur, ...SEED.map(([text, status], i) => ({ id: `seed${i}`, text, status, createdAt: now - (SEED.length - i), updatedAt: now }))];
-    ls.set('sm.cards', seeded);
-    ls.set('sm.seeded', true);
-    return seeded;
-  }
-  return ls.get<Card[]>('sm.cards', []);
-}
-export const cards = signal<Card[]>(initialCards());
-effect(() => ls.set('sm.cards', cards.value));
-// index.html のメモ欄（JS読み込み前から動く）からの追加を取り込む
-window.addEventListener('sm:cards', () => { cards.value = ls.get('sm.cards', cards.value); });
-
-export function setCardStatus(id: string, status: CardStatus) {
-  cards.value = cards.value.map((c) => (c.id === id ? { ...c, status, updatedAt: Date.now() } : c));
-  window.dispatchEvent(new CustomEvent('sm:cards-count'));
-}
-export function moveCard(id: string, dir: 1 | -1): CardStatus | 'deleted' | null {
-  const c = cards.value.find((x) => x.id === id);
-  if (!c) return null;
-  const i = STATUS.indexOf(c.status) + dir;
-  if (i < 0) { deleteCard(id); return 'deleted'; }
-  if (i >= STATUS.length) return null;
-  setCardStatus(id, STATUS[i]);
-  return STATUS[i];
-}
-export function deleteCard(id: string) {
-  const c = cards.value.find((x) => x.id === id);
-  cards.value = cards.value.filter((x) => x.id !== id);
-  if (c) showToast('メモを消しました', { label: 'もとにもどす', run: () => (cards.value = [c, ...cards.value]) });
-}
-export function addCard(text: string, status: CardStatus = 'memo') {
-  const now = Date.now();
-  cards.value = [{ id: uid('c'), text, status, createdAt: now, updatedAt: now }, ...cards.value];
-}
-export function editCard(id: string, text: string) {
-  cards.value = cards.value.map((c) => (c.id === id ? { ...c, text, updatedAt: Date.now() } : c));
+export function deleteMemo(id: string) {
+  const i = memos.value.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const m = memos.value[i];
+  memos.value = memos.value.filter((x) => x.id !== id);
+  showToast('メモを消しました', { label: 'もとにもどす', run: () => { const a = [...memos.value]; a.splice(i, 0, m); memos.value = a; } });
 }
 
 // ── ワークシート ──
@@ -131,10 +97,10 @@ export function appendTo(field: 'fact' | 'reason' | 'next', text: string) {
   worksheet.value = { ...worksheet.value, [field]: cur ? `${cur.replace(/\s+$/, '')}\n${text}` : text };
 }
 
-export const activeCards = computed(() => cards.value.filter((c) => c.status !== 'done').length);
+export const memoCount = computed(() => memos.value.length);
 effect(() => {
   const el = document.getElementById('memo-count');
-  if (el) el.textContent = String(activeCards.value);
+  if (el) el.textContent = String(memoCount.value);
 });
 
 export { batch };

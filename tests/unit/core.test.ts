@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { geoEquirectangular, geoMercator } from 'd3-geo';
 import { parseTag, findFish } from '../../src/data/parse';
 import { findPlace, PLACES, suggestPlaces } from '../../src/data/places';
 import { FISH } from '../../src/data/fish';
 import { CURRENTS } from '../../src/data/ocean';
 import { aggregate, factLines, localQuestions, matches, pinScale, stats, type Entry } from '../../src/core/model';
-import { makeProjector } from '../../src/geo/project';
-import japan from '../../src/data/land-japan.json';
-import world from '../../src/data/land-world.json';
+import { lonLatTo, toLonLat, R } from '../../src/map/globe';
+import globe from '../../src/data/land-globe.json';
+import jpatch from '../../src/data/land-jpatch.json';
 import { sanitize } from '../../worker/sanitize';
 
 const E = (id: string, fishId: string | null, placeId: string, method: Entry['method'] = 'unknown', fishName = fishId ?? '?'): Entry =>
@@ -79,12 +78,12 @@ describe('教材データの整合性', () => {
 
 describe('集計', () => {
   const es = [E('a', 'salmon', 'hokkaido', 'wild'), E('b', 'salmon', 'hokkaido'), E('c', 'saury', 'kushiro'), E('d', 'salmon', 'chile', 'farmed'), E('e', 'shrimp', 'vietnam', 'farmed'), E('f', 'mackerel', 'norway')];
-  it('日本地図は国内だけ、同じ産地はまとまる', () => {
-    const p = aggregate(es, 'japan');
-    expect(p.map((x) => x.key).sort()).toEqual(['hokkaido', 'kushiro']);
+  it('近くで見るときは産地ごと、同じ産地はまとまる', () => {
+    const p = aggregate(es, 'detail');
+    expect(p.map((x) => x.key).sort()).toEqual(['chile', 'hokkaido', 'kushiro', 'norway', 'vietnam']);
     expect(p.find((x) => x.key === 'hokkaido')!.count).toBe(2);
   });
-  it('世界地図は国内を「日本」1本にまとめる', () => {
+  it('引いて見るときは国内を「日本」1本にまとめる', () => {
     const p = aggregate(es, 'world');
     expect(p.find((x) => x.key === 'japan')!.count).toBe(3);
     expect(p.length).toBe(4);
@@ -111,34 +110,35 @@ describe('集計', () => {
   });
 });
 
-describe('投影', () => {
-  it('日本：d3のメルカトルと一致', () => {
-    const p = makeProjector(japan.proj as never);
-    const m = geoMercator().scale(japan.proj.scale).translate(japan.proj.translate as [number, number]).center(japan.proj.center as [number, number]);
-    const [x, y] = p.point(139.7, 35.7);
-    const [mx, my] = m([139.7, 35.7])!;
-    expect(x).toBeCloseTo(mx, 6);
-    expect(y).toBeCloseTo(my, 6);
-  });
-  it('世界：太平洋中心、d3と一致', () => {
-    const p = makeProjector(world.proj as never);
-    const d = geoEquirectangular().rotate(world.proj.rotate as [number, number, number]).scale(world.proj.scale).translate(world.proj.translate as [number, number]);
-    for (const ll of [[139.7, 35.7], [-70, -30], [10, 60], [-150, 20]] as [number, number][]) {
-      const [x, y] = p.point(...ll);
-      const [dx, dy] = d(ll)!;
-      expect(x).toBeCloseTo(dx, 4);
-      expect(y).toBeCloseTo(dy, 4);
+describe('地球儀', () => {
+  it('経緯度と球面の座標を行き来できる', () => {
+    for (const [lon, lat] of [[139.7, 35.7], [-73, -41.5], [6.2, 62.5], [179.5, 10], [-179.5, -10]] as [number, number][]) {
+      const v = lonLatTo(lon, lat);
+      expect(v.length()).toBeCloseTo(R, 6);
+      const [lo, la] = toLonLat(v);
+      expect(lo).toBeCloseTo(lon, 6);
+      expect(la).toBeCloseTo(lat, 6);
     }
-    expect(p.point(150, 0)[0]).toBeCloseTo(world.W / 2, 4);
   });
-  it('世界：西経30度の継ぎ目で海流の線を分ける', () => {
-    const p = makeProjector(world.proj as never);
-    const segs = p.path([[318, 46], [328, 50], [340, 54], [350, 57]]);
-    expect(segs.length).toBe(2);
-    expect(segs[0].at(-1)![0]).toBeGreaterThan(world.W - 2);
-    expect(segs[1][0][0]).toBeLessThan(2);
-    // 継ぎ目をまたがない線は1本のまま
-    expect(p.path([[120, 20], [180, 30], [220, 40]]).length).toBe(1);
+  it('北極は上、経度0度は手前（球の模様の向きと一致）', () => {
+    expect(lonLatTo(0, 90).y).toBeCloseTo(R, 6);
+    const v = lonLatTo(0, 0);
+    expect(v.x).toBeCloseTo(R, 6); // 経度-180度が左端の画像を球にはると、経度0度は +X
+  });
+  it('陸地データ：日本は細かいデータに差しかわっている', () => {
+    expect(globe.polys.length).toBeGreaterThan(500);
+    const jp = globe.polys.slice(globe.japanFrom);
+    expect(jp.length).toBeGreaterThan(20);
+    // 本州（東経135〜142度・北緯34〜41度あたり）が日本側にある
+    const honshu = jp.some((p) => { const r = p[0]; let x = 0, y = 0; for (let i = 0; i < r.length; i += 2) { x += r[i]; y += r[i + 1]; } x /= r.length / 2; y /= r.length / 2; return x > 135 && x < 141 && y > 34 && y < 40 && r.length > 400; });
+    expect(honshu).toBe(true);
+    // 世界側に日本の島は残っていない
+    const dup = globe.polys.slice(0, globe.japanFrom).some((p) => { const r = p[0]; let x = 0, y = 0; for (let i = 0; i < r.length; i += 2) { x += r[i]; y += r[i + 1]; } x /= r.length / 2; y /= r.length / 2; return x > 132 && x < 141 && y > 33 && y < 40; });
+    expect(dup).toBe(false);
+  });
+  it('日本付近の細かい深さ図の範囲', () => {
+    expect(jpatch.bbox).toEqual([118, 20, 156, 50]);
+    expect(jpatch.polys.length).toBeGreaterThan(50);
   });
 });
 

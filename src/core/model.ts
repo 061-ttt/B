@@ -13,7 +13,8 @@ export interface Entry {
   device: string;
 }
 
-export type ViewId = 'japan' | 'world';
+/** detail＝産地ごと、world＝国内を「日本」1本にまとめる（地球儀を引いたとき） */
+export type ViewId = 'detail' | 'world';
 export type FilterId = 'all' | 'domestic' | 'overseas' | 'wild' | 'farmed' | 'warm' | 'cold';
 
 export interface PinFish { id: string | null; name: string; count: number }
@@ -50,13 +51,12 @@ export function matches(e: Entry, f: FilterId, focusFish: string | null): boolea
   }
 }
 
-/** 地図のピンをつくる。日本地図は国内だけ、世界地図は国内を「日本」1本にまとめる */
+/** 地図のピンをつくる。近くで見るときは産地ごと、遠くから見るときは国内を「日本」1本にまとめる */
 export function aggregate(entries: Entry[], view: ViewId): Pin[] {
   const map = new Map<string, Pin>();
   for (const e of entries) {
     const p = placeOf(e);
     if (!p) continue;
-    if (view === 'japan' && !p.domestic) continue;
     const collapse = view === 'world' && p.domestic;
     const key = collapse ? 'japan' : p.id;
     let pin = map.get(key);

@@ -6,7 +6,7 @@ const gl = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swifts
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
@@ -21,7 +21,8 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile',
-      use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium', browserName: 'chromium' },
+      // ソフトウェア描画（GPUなし）でも速く回るよう、画素密度は1にする
+      use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium', browserName: 'chromium', deviceScaleFactor: 1 },
     },
   ],
   webServer: {

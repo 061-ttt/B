@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
-type W = Window & { __sm?: { scene: { frames: number; info(): Record<string, number | string>; current: { warmMesh: { instanceMatrix: { array: Float32Array } } } } } };
+type W = Window & { __sm?: { scene: { frames: number; info(): Record<string, number | string>; arrowSample(): string; flyTo(lon: number, lat: number, d?: number, dur?: number): void } } };
 
 async function ready(page: Page) {
-  await expect(page.locator('#skeleton')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('#skeleton')).toHaveCount(0, { timeout: 45_000 });
   await page.waitForFunction(() => ((window as W).__sm?.scene.frames ?? 0) > 3, null, { timeout: 30_000 });
 }
 
@@ -51,9 +51,10 @@ test('1. 開いた瞬間にメモでき、JSを待たずに保存される', asy
   await page.reload();
   await expect(page.locator('#memo')).toHaveValue('書きかけ');
   await ready(page);
-  await page.locator('[data-tab=tasks]').click();
-  await expect(page.locator('[data-lane=memo] .tx', { hasText: 'サーモンはチリが多い？' })).toBeVisible();
-  await expect(page.locator('#memo-count')).toHaveText('6'); // メモ1＋授業の流れ5
+  await expect(page.locator('#memo-count')).toHaveText('1');
+  await page.locator('#memo-count').click();
+  await expect(page.getByTestId('sheet')).toHaveClass(/(^|\s)on(\s|$)/);
+  await expect(page.getByTestId('memo-list')).toContainText('サーモンはチリが多い？');
 });
 
 test('2. 全画面スケルトン → 地図の準備後に消える', async ({ page }) => {
@@ -69,27 +70,25 @@ test('2. 全画面スケルトン → 地図の準備後に消える', async ({ 
   await ready(page);
 });
 
-test('3. 立体地図・海流アニメーション・潮目・深さ', async ({ page }) => {
+test('3. 地球儀・海流アニメーション・潮目・深さ・端がない', async ({ page }) => {
   await page.goto('/');
   await ready(page);
+  // 宇宙から日本へ寄る
+  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('detail');
   const info = await page.evaluate(() => (window as W).__sm!.scene.info());
-  expect(info.view).toBe('japan');
-  expect(Number(info.warm)).toBeGreaterThan(30);
-  expect(Number(info.cold)).toBeGreaterThan(15);
-  expect(Number(info.meet)).toBeGreaterThanOrEqual(1);
+  expect(Number(info.warm)).toBeGreaterThan(100);
+  expect(Number(info.cold)).toBeGreaterThan(60);
+  expect(Number(info.meet)).toBeGreaterThanOrEqual(3);
   // 矢印が時間とともに動く
-  const read = () => page.evaluate(() => Array.from((window as W).__sm!.scene.current.warmMesh.instanceMatrix.array.slice(12, 15)).join(','));
-  const m1 = await read();
-  await expect.poll(read, { timeout: 8000 }).not.toBe(m1);
-  // 画面も変化している
+  const m1 = await page.evaluate(() => (window as W).__sm!.scene.arrowSample());
+  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.arrowSample()), { timeout: 8000 }).not.toBe(m1);
   const canvas = page.locator('canvas.map-canvas');
   const a = await canvas.screenshot();
   await expect.poll(async () => Buffer.compare(a, await canvas.screenshot()), { timeout: 8000 }).not.toBe(0);
-  // 名前ラベル
   await expect(page.locator('.current-label.warm', { hasText: '黒潮' })).toBeAttached();
   await expect(page.locator('.current-label.cold', { hasText: '親潮' })).toBeAttached();
-  await expect(page.locator('.current-label.meet')).toBeAttached();
-  // 深さの凡例と表示切りかえ
+  await expect(page.locator('.current-label.meet').first()).toBeAttached();
+  // 凡例と表示切りかえ
   await page.getByTestId('legend-btn').click();
   await expect(page.getByTestId('legend-sheet')).toContainText('大陸棚');
   await expect(page.getByTestId('legend-sheet')).toContainText('海溝');
@@ -97,11 +96,22 @@ test('3. 立体地図・海流アニメーション・潮目・深さ', async ({
   await expect(page.getByTestId('layer-currents')).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('layer-currents').click();
   await page.keyboard.press('Escape');
-  // 世界地図
+  // 世界へ引く → 日本へ戻る
   await page.getByTestId('view-world').click();
-  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view)).toBe('world');
-  const wi = await page.evaluate(() => (window as W).__sm!.scene.info());
-  expect(Number(wi.meet)).toBeGreaterThanOrEqual(3);
+  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('world');
+  await expect(page.getByTestId('view-world')).toHaveAttribute('aria-pressed', 'true');
+  // 日付変更線の上にも海がある（地図の端がない）
+  await page.evaluate(() => (window as W).__sm!.scene.flyTo(180, 0, 160, 10));
+  await page.waitForTimeout(800);
+  const center = await page.evaluate(() => {
+    const c = document.querySelector('canvas.map-canvas') as HTMLCanvasElement;
+    const t = document.createElement('canvas'); t.width = c.width; t.height = c.height;
+    const x = t.getContext('2d')!; x.drawImage(c, 0, 0);
+    return Array.from(x.getImageData(c.width / 2, c.height / 2, 1, 1).data);
+  });
+  expect(center[2]).toBeGreaterThan(40); // 青い海（宇宙の黒ではない）
+  await page.getByTestId('view-japan').click();
+  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('detail');
 });
 
 test('4. 入力するとピンが浮き上がり、件数で大きくなる', async ({ page }) => {
@@ -137,8 +147,8 @@ test('5. 値札の文字から読み取り、国内・外国で絞り込む', as
   await expect(sheet.getByTestId('fish-input')).toHaveValue('さけ・サーモン');
   await expect(sheet.getByRole('button', { name: '養殖', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await sheet.getByTestId('submit').click();
-  // 外国の入力なので世界地図へ切りかわる
-  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view)).toBe('world');
+  // 外国の入力なので、地球儀を引いてチリへ飛ぶ
+  await expect.poll(() => page.evaluate(() => (window as W).__sm!.scene.info().view), { timeout: 15_000 }).toBe('world');
   await expect(page.locator('.pin[data-key=chile]')).toBeVisible();
   await expect(page.locator('.pin[data-key=japan]')).toBeAttached();
   await page.locator('[data-filter=domestic]').click();
@@ -149,48 +159,38 @@ test('5. 値札の文字から読み取り、国内・外国で絞り込む', as
   await expect(page.locator('.pin[data-key=japan]')).toHaveClass(/dim/);
 });
 
-async function flick(page: Page, card: ReturnType<Page['locator']>, dx: number) {
-  await card.evaluate((e) => e.scrollIntoView({ block: 'center' }));
-  await page.waitForTimeout(650); // 入場アニメーションが終わるのを待つ
-  const b = (await card.boundingBox())!;
-  const y = b.y + b.height / 2, x = b.x + b.width / 2 - dx / 3;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let i = 1; i <= 10; i++) await page.mouse.move(x + (dx * i) / 10, y + i * 0.3);
-  await page.mouse.up();
-}
-
-test('6. フリックでタスクのステータスを進める・戻す', async ({ page }) => {
+test('6. タスクはなく、以前のタスクも消える。メモはシートで使える', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('sm.cards', JSON.stringify([
+      { id: 'seed0', text: '値札の産地を確かめる', status: 'todo', createdAt: 1 },
+      { id: 'seed1', text: '次に調べたいことを書く', status: 'done', createdAt: 2 },
+      { id: 'cold1', text: '北の魚は寒流と関係ありそう', status: 'memo', createdAt: 3 },
+    ]));
+    localStorage.setItem('sm.seeded', 'true');
+  });
   await page.goto('/');
   await ready(page);
-  await page.locator('[data-tab=tasks]').click();
-  const panel = page.getByTestId('tasks');
-  await expect(panel).toHaveClass(/(^|\s)on(\s|$)/);
-  const first = panel.locator('[data-lane=todo] [data-card]').first();
-  const id = await first.getAttribute('data-card');
-  await flick(page, first.locator('.card'), 240);
-  await expect(panel.locator(`[data-lane=doing] [data-card="${id}"]`)).toBeVisible();
-  await flick(page, panel.locator(`[data-lane=doing] [data-card="${id}"] .card`), 240);
-  await expect(panel.locator(`[data-lane=done] [data-card="${id}"]`)).toBeVisible();
-  await flick(page, panel.locator(`[data-lane=done] [data-card="${id}"] .card`), -240);
-  await expect(panel.locator(`[data-lane=doing] [data-card="${id}"]`)).toBeVisible();
-  // 小さく動かしただけでは変わらない
-  await flick(page, panel.locator(`[data-lane=doing] [data-card="${id}"] .card`), 40);
-  await expect(panel.locator(`[data-lane=doing] [data-card="${id}"]`)).toBeVisible();
-  // メモを左へ → 消える → もとにもどす
-  await page.locator('#memo').fill('あとで調べる');
-  await page.locator('#memo').press('Enter');
-  const memo = panel.locator('[data-lane=memo] [data-card]').first();
-  await expect(memo).toContainText('あとで調べる');
-  await flick(page, memo.locator('.card'), -240);
-  await expect(panel.locator('[data-lane=memo] [data-card]')).toHaveCount(0);
+  await expect(page.locator('[data-tab]')).toHaveCount(3);
+  await expect(page.locator('[data-tab=tasks]')).toHaveCount(0);
+  await expect(page.locator('#memo-count')).toHaveText('1');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sm.cards') || '[]'));
+  expect(stored.map((c: { id: string }) => c.id)).toEqual(['cold1']);
+  await page.locator('[data-tab=sheet]').click();
+  const memo = page.locator('[data-memo=cold1]');
+  await expect(memo).toContainText('寒流');
+  await memo.getByRole('button', { name: '02 予想へ' }).click();
+  await expect(page.getByTestId('ws-reason')).toHaveValue('北の魚は寒流と関係ありそう');
+  await memo.getByRole('button', { name: 'このメモを消す' }).click();
+  await expect(page.locator('[data-memo]')).toHaveCount(0);
+  await expect(page.locator('#memo-count')).toHaveText('0');
   await page.getByTestId('toast').getByRole('button', { name: 'もとにもどす' }).click();
-  await expect(panel.locator('[data-lane=memo] [data-card]')).toHaveCount(1);
-  // 状態は保存される
-  await page.reload();
-  await ready(page);
-  await page.locator('[data-tab=tasks]').click();
-  await expect(panel.locator(`[data-lane=doing] [data-card="${id}"]`)).toBeVisible();
+  await expect(page.locator('[data-memo=cold1]')).toBeVisible();
+  // 新しいメモはすぐ一覧に入る
+  await page.locator('#memo').fill('チリのサーモンは養殖');
+  await page.locator('#memo').press('Enter');
+  await expect(page.locator('[data-memo]')).toHaveCount(2);
 });
 
 test('7. 図鑑のアコーディオンと地図の連動', async ({ page }) => {
@@ -217,7 +217,7 @@ test('7. 図鑑のアコーディオンと地図の連動', async ({ page }) => 
 });
 
 test('8. 2台の端末でリアルタイムに集まる', async ({ browser }) => {
-  const opts = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+  const opts = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
   const A = await (await browser.newContext(opts)).newPage();
   const B = await (await browser.newContext(opts)).newPage();
   await A.goto('/');
@@ -278,7 +278,7 @@ test('9. AIが使えなくてもワークシートが動く（事実・問いの
 test('10. 横スクロールなし・全タブでレイアウトが崩れない', async ({ page }) => {
   await page.goto('/');
   await ready(page);
-  for (const t of ['map', 'zukan', 'tasks', 'sheet']) {
+  for (const t of ['map', 'zukan', 'sheet']) {
     await page.locator(`[data-tab=${t}]`).click();
     await page.waitForTimeout(450);
     const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth }));

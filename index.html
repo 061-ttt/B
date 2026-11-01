@@ -9,29 +9,31 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23000'/%3E%3Cpath d='M12 32c8-11 22-14 32-6l8-6v24l-8-6c-10 8-24 5-32-6z' fill='%234da3ff'/%3E%3Ccircle cx='22' cy='30' r='2.5' fill='%23000'/%3E%3C/svg%3E" />
   <style>
     /* 最初の描画に必要な分だけ（メモとスケルトン）。残りは styles.css */
-    :root { color-scheme:dark; --bg:#000; --fg:#f2f5f8; --sub:rgba(235,240,248,.62); --line:rgba(255,255,255,.14); --safe-t:env(safe-area-inset-top,0px); }
+    :root { color-scheme:dark; --bg:#02040a; --fg:#f3f7ff; --sub:rgba(214,228,255,.62); --safe-t:env(safe-area-inset-top,0px); }
     html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); overscroll-behavior:none; }
-    body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; overflow:hidden; }
+    body { font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; overflow:hidden; }
     #quick { position:fixed; z-index:60; left:12px; right:12px; top:calc(10px + var(--safe-t)); display:flex; gap:8px; align-items:flex-end; }
-    #quick .field { flex:1; display:flex; align-items:flex-end; min-height:46px; border-radius:23px; padding:0 6px 0 16px;
-      background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05)); border:1px solid rgba(255,255,255,.2);
-      -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 30px rgba(0,0,0,.5); transition:border-color .25s, box-shadow .25s; }
-    #quick .field:focus-within { border-color:rgba(120,190,255,.7); box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 0 4px rgba(77,163,255,.18),0 12px 34px rgba(0,0,0,.55); }
-    #memo { flex:1; resize:none; border:0; outline:0; background:transparent; color:var(--fg); font:inherit; font-size:16px; line-height:22px; padding:12px 0; max-height:110px; height:22px; box-sizing:content-box; }
+    #quick .field { flex:1; min-width:0; display:flex; align-items:flex-end; min-height:48px; border-radius:24px; padding:0 6px 0 16px;
+      background:linear-gradient(180deg,rgba(36,44,66,.66),rgba(12,15,26,.78)); border:1.5px solid rgba(139,107,255,.55);
+      -webkit-backdrop-filter:blur(22px) saturate(170%); backdrop-filter:blur(22px) saturate(170%);
+      box-shadow:0 0 16px rgba(139,107,255,.25),inset 0 1px 0 rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.55); transition:border-color .25s, box-shadow .25s; }
+    #quick .field:focus-within { border-color:#3ee6ff; box-shadow:0 0 0 4px rgba(62,230,255,.16),0 0 24px rgba(62,230,255,.45),0 12px 34px rgba(0,0,0,.6); }
+    #quick .pen { flex:none; width:20px; height:20px; margin:14px 8px 14px -4px; color:#a996ff; }
+    #memo { flex:1; min-width:0; width:100%; resize:none; border:0; outline:0; background:transparent; color:var(--fg); font:inherit; font-size:16px; font-weight:500; line-height:22px; padding:13px 0; max-height:110px; height:22px; box-sizing:content-box; }
     #memo::placeholder { color:var(--sub); }
-    #memo-save { flex:none; width:34px; height:34px; margin:6px 0; border-radius:17px; border:0; background:#4da3ff; color:#001; font-size:18px; font-weight:700; display:grid; place-items:center; transform:scale(0); transition:transform .3s cubic-bezier(.3,1.6,.5,1); cursor:pointer; }
+    #memo-save { flex:none; height:36px; padding:0 14px; margin:6px 0; border-radius:18px; border:0; background:linear-gradient(180deg,#a6f9ff,#3ee6ff); color:#02131a; font:inherit; font-size:14px; font-weight:800; transform:scale(0); transition:transform .3s cubic-bezier(.3,1.6,.5,1); cursor:pointer; box-shadow:0 0 14px rgba(62,230,255,.6); }
     #quick.has #memo-save { transform:scale(1); }
-    #memo-count { flex:none; min-width:46px; height:46px; border-radius:23px; border:1px solid rgba(255,255,255,.2); color:var(--fg); font:inherit; font-size:15px; font-weight:700;
-      background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05)); -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px); cursor:pointer; padding:0 12px; }
+    #memo-count { flex:none; min-width:48px; height:48px; border-radius:24px; border:1.5px solid rgba(139,107,255,.55); color:#fff; font-family:"Outfit",system-ui,sans-serif; font-size:17px; font-weight:800; display:grid; place-items:center; line-height:1;
+      background:radial-gradient(circle at 35% 30%,rgba(169,150,255,.5),rgba(40,30,90,.7)); -webkit-backdrop-filter:blur(22px); backdrop-filter:blur(22px); cursor:pointer; padding:0 12px; box-shadow:0 0 16px rgba(139,107,255,.35); }
     #memo-count.pop { animation:pop .5s cubic-bezier(.3,1.6,.5,1); }
     @keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
-    .memo-fly { position:fixed; z-index:61; pointer-events:none; padding:6px 12px; border-radius:14px; background:rgba(77,163,255,.9); color:#001; font-size:14px; font-weight:700; transition:transform .55s cubic-bezier(.5,0,.3,1), opacity .55s; }
+    .memo-fly { position:fixed; z-index:61; pointer-events:none; padding:6px 12px; border-radius:14px; background:#8b6bff; color:#fff; font-size:14px; font-weight:800; box-shadow:0 0 16px rgba(139,107,255,.8); transition:transform .55s cubic-bezier(.5,0,.3,1), opacity .55s; }
 
-    #skeleton { position:fixed; inset:0; z-index:50; background:#000; transition:opacity .5s ease, visibility .5s; }
+    #skeleton { position:fixed; inset:0; z-index:50; background:radial-gradient(120% 80% at 50% 40%,#071225 0%,#02040a 70%); transition:opacity .6s ease, visibility .6s; }
     #skeleton.done { opacity:0; visibility:hidden; }
-    .sk { position:absolute; border-radius:18px; background:#111; overflow:hidden; }
-    .sk::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent); animation:sh 1.3s infinite; }
+    .sk { position:absolute; border-radius:18px; background:rgba(120,160,255,.08); overflow:hidden; }
+    .sk::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg,transparent,rgba(120,220,255,.12),transparent); animation:sh 1.3s infinite; }
+    .sk.globe { border-radius:50%; background:radial-gradient(circle at 38% 32%,rgba(62,230,255,.16),rgba(20,40,80,.25) 55%,rgba(10,20,40,.2)); box-shadow:0 0 60px rgba(62,230,255,.15); }
     @keyframes sh { to { transform:translateX(100%); } }
     @media (prefers-reduced-motion: reduce) { .sk::after { animation:none; } }
   </style>
@@ -40,10 +42,11 @@
   <!-- 開いた瞬間に書けるメモ。JSの読み込みを待たない -->
   <form id="quick" autocomplete="off" onsubmit="return false">
     <label class="field">
+      <svg class="pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg>
       <textarea id="memo" rows="1" placeholder="メモ" aria-label="メモ" enterkeyhint="done" autofocus></textarea>
-      <button id="memo-save" type="button" aria-label="メモを保存">↑</button>
+      <button id="memo-save" type="button" aria-label="メモを保存">保存</button>
     </label>
-    <button id="memo-count" type="button" aria-label="メモとタスク">0</button>
+    <button id="memo-count" type="button" aria-label="メモの一覧">0</button>
   </form>
   <script>
     (function () {
@@ -51,7 +54,7 @@
       var q = document.getElementById('quick'), m = document.getElementById('memo'), c = document.getElementById('memo-count');
       function load() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
       function store(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} }
-      function count() { var n = load().filter(function (x) { return x.status !== 'done'; }).length; c.textContent = n; }
+      function count() { c.textContent = load().length; }
       function fit() { m.style.height = '22px'; m.style.height = Math.min(m.scrollHeight - 24, 110) + 'px'; q.classList.toggle('has', m.value.trim().length > 0); }
       try { m.value = localStorage.getItem(DRAFT) || ''; } catch (e) {}
       fit(); count();
@@ -59,7 +62,7 @@
       function save() {
         var t = m.value.trim(); if (!t) return;
         var now = Date.now(), cards = load();
-        cards.unshift({ id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 6), text: t, status: 'memo', createdAt: now, updatedAt: now });
+        cards.unshift({ id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 6), text: t, createdAt: now });
         store(cards); m.value = ''; try { localStorage.removeItem(DRAFT); } catch (e) {} fit(); count();
         var r = m.getBoundingClientRect(), b = c.getBoundingClientRect(), f = document.createElement('div');
         f.className = 'memo-fly'; f.textContent = t.length > 14 ? t.slice(0, 14) + '…' : t;
@@ -78,15 +81,16 @@
   </script>
 
   <div id="skeleton" aria-hidden="true">
-    <div class="sk" style="left:12px;right:12px;top:calc(66px + var(--safe-t));height:40px;border-radius:20px"></div>
-    <div class="sk" style="left:12px;width:68px;top:calc(116px + var(--safe-t));height:34px;border-radius:17px"></div>
-    <div class="sk" style="left:88px;width:68px;top:calc(116px + var(--safe-t));height:34px;border-radius:17px"></div>
-    <div class="sk" style="left:164px;width:68px;top:calc(116px + var(--safe-t));height:34px;border-radius:17px"></div>
-    <div class="sk" style="left:240px;width:68px;top:calc(116px + var(--safe-t));height:34px;border-radius:17px"></div>
-    <div class="sk" style="left:6%;right:6%;top:24%;bottom:26%;border-radius:40% 30% 45% 35%;background:#0b0f14"></div>
-    <div class="sk" style="left:12px;width:150px;bottom:calc(98px + env(safe-area-inset-bottom,0px));height:44px;border-radius:22px"></div>
-    <div class="sk" style="right:12px;width:60px;bottom:calc(92px + env(safe-area-inset-bottom,0px));height:60px;border-radius:30px"></div>
-    <div class="sk" style="left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));height:66px;border-radius:33px"></div>
+    <div class="sk" style="left:12px;width:150px;top:calc(68px + var(--safe-t));height:42px;border-radius:21px"></div>
+    <div class="sk" style="right:12px;width:96px;top:calc(68px + var(--safe-t));height:42px;border-radius:21px"></div>
+    <div class="sk" style="left:12px;width:76px;top:calc(120px + var(--safe-t));height:36px;border-radius:18px"></div>
+    <div class="sk" style="left:96px;width:64px;top:calc(120px + var(--safe-t));height:36px;border-radius:18px"></div>
+    <div class="sk" style="left:168px;width:120px;top:calc(120px + var(--safe-t));height:36px;border-radius:18px"></div>
+    <div class="sk" style="left:296px;width:64px;top:calc(120px + var(--safe-t));height:36px;border-radius:18px"></div>
+    <div class="sk globe" style="left:50%;top:46%;width:min(78vw,62vh);aspect-ratio:1;translate:-50% -50%"></div>
+    <div class="sk" style="left:12px;width:168px;bottom:calc(94px + env(safe-area-inset-bottom,0px));height:62px;border-radius:22px"></div>
+    <div class="sk" style="right:14px;width:116px;bottom:calc(94px + env(safe-area-inset-bottom,0px));height:60px;border-radius:30px"></div>
+    <div class="sk" style="left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:66px;border-radius:33px"></div>
   </div>
 
   <div id="app"></div>

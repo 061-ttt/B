@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { appendTo, entries, showToast, tab, worksheet } from '../state';
+import { appendTo, deleteMemo, entries, memos, showToast, tab, worksheet } from '../state';
 import { factLines, localQuestions, stats } from '../core/model';
 import { aiQuestions } from '../core/sync';
 import { G } from './Glyph';
@@ -12,6 +12,12 @@ const STARTERS = [
   '養殖がさかんなのは、〜だからだと思う。',
 ];
 
+const FIELDS = [
+  { k: 'fact', no: '01', n: 'var(--blue)', t: '事実', q: 'どこに多かった？（国内／外国、海側、天然・養殖）' },
+  { k: 'reason', no: '02', n: 'var(--green)', t: '理由の予想', q: 'なぜそこに集まると思う？' },
+  { k: 'next', no: '03', n: 'var(--amber)', t: '次に調べたいこと', q: 'もっと知りたい「なぜ？」「どうやって？」' },
+] as const;
+
 export function Worksheet() {
   const w = worksheet.value;
   const [seeds, setSeeds] = useState<string[] | null>(null);
@@ -20,7 +26,7 @@ export function Worksheet() {
 
   function pickFacts() {
     const lines = factLines(stats(entries.value));
-    if (!lines.length) { showToast('まだ地図にデータがありません'); return; }
+    if (!lines.length) { showToast('まだ地球儀にデータがありません'); return; }
     appendTo('fact', lines.join('\n'));
   }
   async function makeSeeds() {
@@ -34,34 +40,50 @@ export function Worksheet() {
 
   return (
     <section class={`panel ${tab.value === 'sheet' ? 'on print-me' : ''}`} aria-label="ワークシート" data-testid="sheet" aria-hidden={tab.value !== 'sheet'}>
-      <h2>ワークシート</h2>
+      <div class="ph"><h2>ワーク<span class="em">シート</span></h2></div>
+      <div class="rule"><i /><span>地球儀を見て、<b>根拠</b>をもって考える</span><s /></div>
 
-      <div class="ws glass">
-        <div class="ws-h"><span class="no" style={{ background: '#4da3ff' }}>1</span><div><div class="tt">事実</div><div class="q">どこに多かった？（国内／外国、海側、天然・養殖）</div></div></div>
-        <textarea value={w.fact} onInput={(e) => set('fact', (e.target as HTMLTextAreaElement).value)} aria-label="事実" data-testid="ws-fact" />
-        <div class="ws-tools"><button class="btn" onClick={pickFacts} data-testid="pick-facts"><G.map />地図から読み取る</button></div>
-      </div>
-
-      <div class="ws glass">
-        <div class="ws-h"><span class="no" style={{ background: '#3ddc97' }}>2</span><div><div class="tt">理由の予想</div><div class="q">なぜそこに集まると思う？</div></div></div>
-        <textarea value={w.reason} onInput={(e) => set('reason', (e.target as HTMLTextAreaElement).value)} aria-label="理由の予想" data-testid="ws-reason" />
-        <div class="starters">{STARTERS.map((s) => <button key={s} onClick={() => appendTo('reason', s)}>{s}</button>)}</div>
-      </div>
-
-      <div class="ws glass">
-        <div class="ws-h"><span class="no" style={{ background: '#ffc24d' }}>3</span><div><div class="tt">次に調べたいこと</div><div class="q">もっと知りたい「なぜ？」「どうやって？」</div></div></div>
-        <textarea value={w.next} onInput={(e) => set('next', (e.target as HTMLTextAreaElement).value)} aria-label="次に調べたいこと" data-testid="ws-next" />
-        <div class="ws-tools"><button class="btn" onClick={makeSeeds} disabled={busy} data-testid="seeds"><G.spark />{busy ? '考えています…' : '問いのたね'}</button></div>
-        {seeds && (
-          <div class="seeds" data-testid="seed-list">
-            {seeds.map((s) => <button key={s} onClick={() => { appendTo('next', s); setSeeds(seeds.filter((x) => x !== s)); }}>{s}</button>)}
+      <div class="ws neon memo-card" id="memo-list" style={{ '--n': 'var(--violet)' }}>
+        <div class="ws-h"><span class="num" style={{ '--n': 'var(--violet)' }}><G.pen /></span><div><div class="tt">メモ</div><div class="q">画面の上のメモ欄に書いたこと</div></div></div>
+        {memos.value.length ? (
+          <div class="memos" data-testid="memo-list">
+            {memos.value.map((m) => (
+              <div class="memo" key={m.id} data-memo={m.id}>
+                <p>{m.text}</p>
+                <div class="acts">
+                  <button class="to1" onClick={() => { appendTo('fact', m.text); showToast('01 事実に入れました'); }}>01 事実へ</button>
+                  <button class="to2" onClick={() => { appendTo('reason', m.text); showToast('02 理由の予想に入れました'); }}>02 予想へ</button>
+                  <button class="to3" onClick={() => { appendTo('next', m.text); showToast('03 次に調べたいことに入れました'); }}>03 調べたいへ</button>
+                  <button class="del" aria-label="このメモを消す" onClick={() => deleteMemo(m.id)}>けす</button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        ) : <p class="empty">上のメモ欄に書いて保存すると、ここに入ります</p>}
       </div>
 
-      <div class="ws glass checks">
-        <div class="ws-h"><div class="tt">ふり返り</div></div>
-        {['産地の分布の特徴を読み取れた', '資料（地図・海流・深さ）を根拠に理由を考えた', '次の時間につながる問いをもてた'].map((t, i) => (
+      {FIELDS.map((f) => (
+        <div class="ws neon" key={f.k} style={{ '--n': f.n }}>
+          <div class="ws-h"><span class="num" style={{ '--n': f.n }}>{f.no}</span><div><div class="tt">{f.t}</div><div class="q">{f.q}</div></div></div>
+          <textarea id={`ws-${f.k}`} value={w[f.k]} onInput={(e) => set(f.k, (e.target as HTMLTextAreaElement).value)} aria-label={f.t} data-testid={`ws-${f.k}`} />
+          {f.k === 'fact' && <div class="ws-tools"><button class="btn" onClick={pickFacts} data-testid="pick-facts"><G.globe />地球儀から読み取る</button></div>}
+          {f.k === 'reason' && <div class="starters">{STARTERS.map((s) => <button key={s} onClick={() => appendTo('reason', s)}>{s}</button>)}</div>}
+          {f.k === 'next' && (
+            <>
+              <div class="ws-tools"><button class="btn" onClick={makeSeeds} disabled={busy} data-testid="seeds"><G.spark />{busy ? '考えています…' : '問いのたね'}</button></div>
+              {seeds && (
+                <div class="seeds" data-testid="seed-list">
+                  {seeds.map((s) => <button key={s} onClick={() => { appendTo('next', s); setSeeds(seeds.filter((x) => x !== s)); }}>{s}</button>)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+
+      <div class="ws neon checks" style={{ '--n': 'var(--pink)' }}>
+        <div class="ws-h"><span class="num" style={{ '--n': 'var(--pink)' }}>✓</span><div class="tt">ふり返り</div></div>
+        {['産地の分布の特徴を読み取れた', '資料（地球儀・海流・深さ）を根拠に理由を考えた', '次の時間につながる問いをもてた'].map((t, i) => (
           <label key={t}><input type="checkbox" checked={w.checks[i]} onChange={(e) => { const c = [...w.checks]; c[i] = (e.target as HTMLInputElement).checked; worksheet.value = { ...worksheet.value, checks: c }; }} />{t}</label>
         ))}
       </div>
