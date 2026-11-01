@@ -23,7 +23,7 @@ export interface Fish {
 
 export const FISH: Fish[] = [
   {
-    id: 'salmon', name: 'さけ・サーモン', kanji: '鮭', aliases: ['さけ', 'しゃけ', 'サーモン', '銀鮭', 'ぎんざけ', '秋鮭', '紅鮭', 'べにざけ', 'トラウト', '鱒', 'アトランティックサーモン', 'サーモントラウト', 'シロザケ'],
+    id: 'salmon', name: 'さけ・サーモン', kanji: '鮭', aliases: ['さけ', 'しゃけ', 'サーモン', '銀鮭', 'ぎんざけ', '銀ざけ', '秋ざけ', '紅ざけ', '時しらず', '秋鮭', '紅鮭', 'べにざけ', 'トラウト', '鱒', 'アトランティックサーモン', 'サーモントラウト', 'シロザケ'],
     icon: 'fish', color: '#ff8a65', current: 'cold', method: 'both',
     domestic: ['hokkaido', 'iwate', 'miyagi'], overseas: ['chile', 'norway', 'russia', 'usa'],
     season: '秋', how: '川に帰ってくる秋さけを定置網でとる。宮城では銀ざけの養殖も',

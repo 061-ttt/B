@@ -35,6 +35,8 @@ function build({ name, topo, object, projection, W, H, minDist, minArea }) {
       const r = decimate(ring, minDist).map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
       if (r.length < 4) continue;
       if (Math.abs(area(r)) < minArea) continue;
+      // 切り取りで生じる「地図全体を覆う枠」は捨てる
+      if (Math.abs(area(r)) > W * H * 0.8) continue;
       rings.push(r.flat());
     }
     if (rings.length) polys.push(rings);

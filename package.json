@@ -1,14 +1,19 @@
 {
   "name": "suisan-map",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "小5社会「水産業のさかんな地域」授業用Webアプリ",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "geo": "node scripts/build-geo.mjs",
+    "dev": "vite",
+    "dev:worker": "wrangler dev --port 8787",
+    "build": "tsc -p . && vite build",
+    "build:standalone": "STANDALONE=1 vite build",
+    "typecheck": "tsc -p . && tsc -p worker",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "deploy": "npm run build && wrangler deploy"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@preact/signals": "^2.11.4",
     "d3-geo": "^3.1.1",
@@ -32,5 +37,7 @@
     "vitest": "^5.0.5",
     "world-atlas": "^2.0.2",
     "wrangler": "^4.156.0"
-  }
+  },
+  "private": true,
+  "type": "module"
 }
