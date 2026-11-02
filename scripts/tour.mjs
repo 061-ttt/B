@@ -5,7 +5,8 @@ const BASE = process.env.BASE ?? 'http://127.0.0.1:8787';
 const b = await chromium.launch({ executablePath: process.env.PW_CHROME_PATH, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage();
 await p.goto(BASE);
-await p.waitForFunction(() => !document.getElementById('skeleton'), null, { timeout: 40000 });
+await p.waitForFunction(() => !document.getElementById('skeleton'), null, { timeout: 60000 });
+if (await p.getByTestId('intro-start').isVisible()) await p.getByTestId('intro-start').click();
 const add = async (fish, place, method) => {
   await p.getByTestId('fab').click();
   await p.getByTestId('fish-input').fill(fish);

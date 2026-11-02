@@ -7,7 +7,7 @@ import { PLACE_BY_ID } from '../data/places';
 import { buildDepth } from './depth';
 import { pinScale, type Pin } from '../core/model';
 import { iconSvg } from '../ui/icons';
-import { photo } from '../ui/photo';
+import { figure } from '../ui/photo';
 
 export const R = 100;
 const LAND_H = 0.8;
@@ -20,7 +20,10 @@ export type MapMode = 'detail' | 'world';
 export interface Layers { currents: boolean; depth: boolean; labels: boolean }
 export interface GlobeData { globe: { polys: number[][][]; japanFrom: number }; patch: { bbox: [number, number, number, number]; polys: number[][][] } }
 
-interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'pin' | 'ghost'; near?: boolean; far?: boolean; dy?: number; hidden?: boolean }
+interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'pin' | 'ghost'; near?: boolean; far?: boolean }
+interface PinRec { pin: Pin; el: HTMLElement; bill: THREE.Mesh; shadow: THREE.Mesh; tex: THREE.Texture; born: number; bumpAt: number; label: Label; base: THREE.Vector3; normal: THREE.Vector3; phase: number; offset: number; row: number; first: boolean; wPx: number; hPx: number }
+const FIG_GEO = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+const SHADOW_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 interface Flow { curve: THREE.CatmullRomCurve3; len: number; n: number; spacing: number; kind: OceanCurrent['kind']; warmIdx: number[]; coldIdx: number[] }
 
 export function lonLatTo(lon: number, lat: number, r = R, out = new THREE.Vector3()): THREE.Vector3 {
@@ -121,7 +124,7 @@ export class Globe {
   private labels: Label[] = [];
   private labelLayer: HTMLElement;
   private pinLayer: HTMLElement;
-  private pins = new Map<string, { pin: Pin; el: HTMLElement; stem: THREE.Mesh; ring: THREE.Mesh; born: number; label: Label; h: number; normal: THREE.Vector3; base: THREE.Vector3 }>();
+  private pins = new Map<string, PinRec>();
   private pinGroup = new THREE.Group();
   private ghosts: Label[] = [];
   private raf = 0;
@@ -356,7 +359,44 @@ export class Globe {
     for (const l of this.labels) l.el.style.display = this.layers.labels && (l.kind !== 'current' || this.layers.currents) ? '' : 'none';
   }
 
-  // ── ピン ──
+  // ── 魚の3Dフィギュア（地球儀の上に立てる。入力が多いほど大きい） ──
+  private texCache = new Map<string, THREE.Texture>();
+  private shadowTex: THREE.Texture | null = null;
+  private figTexture(id: string | null, icon: Parameters<typeof iconSvg>[0], color: string): THREE.Texture {
+    const key = id ?? `icon:${icon}:${color}`;
+    let t = this.texCache.get(key);
+    if (t) return t;
+    const url = figure(id);
+    if (url) {
+      t = new THREE.TextureLoader().load(url, (tx) => { tx.needsUpdate = true; });
+    } else {
+      // 図鑑にない魚：アイコンを絵にして使う
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 172;
+      t = new THREE.CanvasTexture(cv);
+      const img = new Image();
+      img.onload = () => { const c = cv.getContext('2d')!; c.drawImage(img, 8, 8, 240, 156); t!.needsUpdate = true; };
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(icon, color, 240).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '))}`;
+    }
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    this.texCache.set(key, t);
+    return t;
+  }
+  private getShadowTex() {
+    if (this.shadowTex) return this.shadowTex;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const c = cv.getContext('2d')!;
+    const g = c.createRadialGradient(64, 64, 4, 64, 64, 62);
+    g.addColorStop(0, 'rgba(0,0,0,.75)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 128, 128);
+    this.shadowTex = new THREE.CanvasTexture(cv);
+    return this.shadowTex;
+  }
+
   setPins(list: Pin[], dimKeys: Set<string> | null = null) {
     const seen = new Set<string>();
     const now = performance.now();
@@ -365,12 +405,11 @@ export class Globe {
       const top = pin.fish[0];
       const f = top.id ? FISH_BY_ID.get(top.id) : undefined;
       const color = f?.color ?? '#9fd3ff';
-      const h = 2.6 + 1.5 * Math.sqrt(pin.count);
       let rec = this.pins.get(pin.key);
       if (!rec) {
         const el = document.createElement('button');
         el.type = 'button';
-        el.className = 'pin rise';
+        el.className = 'pin';
         el.dataset.key = pin.key;
         el.dataset.place = pin.placeKey;
         el.dataset.fish = pin.fishKey;
@@ -379,59 +418,219 @@ export class Globe {
         const onSea = PLACE_BY_ID.get(pin.placeKey)?.kind === 'sea';
         const base = lonLatTo(pin.lon, pin.lat, onSea ? CUR_R : R + LAND_H + 0.05);
         const normal = base.clone().normalize();
-        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
-        stem.position.copy(base); stem.quaternion.copy(q); stem.scale.y = 0.001;
-        const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.62, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-        ring.position.copy(base).addScaledVector(normal, 0.05); ring.quaternion.copy(q);
-        this.pinGroup.add(stem, ring);
+        const tex = this.figTexture(top.id, f?.icon ?? 'fish', color);
+        const bill = new THREE.Mesh(FIG_GEO, new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }));
+        bill.matrixAutoUpdate = false;
+        bill.renderOrder = 5;
+        const shadow = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: this.getShadowTex(), transparent: true, depthWrite: false }));
+        shadow.matrixAutoUpdate = false;
+        shadow.renderOrder = 4;
+        this.pinGroup.add(shadow, bill);
         const label: Label = { el, pos: base.clone(), prio: 100 + pin.count, kind: 'pin' };
-        rec = { pin, el, stem, ring, born: now, label, h, normal, base };
+        rec = { pin, el, bill, shadow, tex, born: now, bumpAt: 0, label, base, normal, phase: Math.random() * 6.28, offset: 0, row: 0, first: false, wPx: 0, hPx: 0 };
         this.pins.set(pin.key, rec);
-        setTimeout(() => el.classList.remove('rise'), 900);
       } else if (rec.pin.count !== pin.count) {
-        rec.el.classList.remove('bump'); void rec.el.offsetWidth; rec.el.classList.add('bump');
+        rec.bumpAt = now;
       }
-      // 中身が変わったピンだけ書きかえる（60人分が一度に届いても速く）
-      const sig = `${top.name}|${pin.name}|${color}`;
+      const sig = `${top.name}|${pin.count}|${pin.name}`;
       if (rec.el.dataset.sig !== sig) {
-        const ph = photo(top.id, true);
-        const pic = ph ? `<img class="pin-photo" src="${ph}" alt="" decoding="async">` : iconSvg(f?.icon ?? 'fish', color, 30);
-        rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${pic}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
+        rec.el.innerHTML = `<span class="pin-tag" style="--c:${color}"><span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></span><span class="pin-place">${esc(pin.name)}</span>`;
         rec.el.dataset.sig = sig;
-      } else {
-        const c = rec.el.querySelector('.pin-count');
-        if (c && c.textContent !== String(pin.count)) c.textContent = String(pin.count);
       }
       rec.el.style.setProperty('--s', String(pinScale(pin.count)));
-      rec.el.setAttribute('aria-label', `${pin.name}：${pin.fish.map((x) => `${x.name}${x.count}件`).join('、')}`);
-      (rec.stem.material as THREE.MeshBasicMaterial).color.set(color);
-      (rec.ring.material as THREE.MeshBasicMaterial).color.set(color);
-      rec.pin = pin; rec.h = h; rec.label.prio = 100 + pin.count;
-      rec.el.classList.toggle('dim', !!dimKeys && !dimKeys.has(pin.key));
+      rec.el.setAttribute('aria-label', `${pin.name}：${top.name}${pin.count}件`);
+      rec.pin = pin;
+      rec.label.prio = 100 + pin.count;
+      const dim = !!dimKeys && !dimKeys.has(pin.key);
+      rec.el.classList.toggle('dim', dim);
+      (rec.bill.material as THREE.MeshBasicMaterial).opacity = dim ? 0.14 : 1;
+      (rec.bill.material as THREE.MeshBasicMaterial).alphaTest = dim ? 0 : 0.08;
+      (rec.bill.material as THREE.MeshBasicMaterial).depthWrite = !dim;
+      (rec.shadow.material as THREE.MeshBasicMaterial).opacity = dim ? 0.15 : 1;
     }
-    for (const [k, r] of this.pins) if (!seen.has(k)) { r.el.remove(); this.pinGroup.remove(r.stem, r.ring); this.pins.delete(k); }
-    // 同じ産地の魚は、画面の上で縦に積んで1つずつ見えるようにする（多い魚ほど下＝産地の近く）
-    const groups = new Map<string, typeof this.pins extends Map<string, infer V> ? V[] : never>();
+    for (const [k, r] of this.pins) if (!seen.has(k)) { r.el.remove(); this.pinGroup.remove(r.bill, r.shadow); (r.bill.material as THREE.Material).dispose(); (r.shadow.material as THREE.Material).dispose(); this.pins.delete(k); }
+    // 同じ産地の魚は横に並べる（多い魚ほど真ん中）。並びきらないときは上の段へ
+    const groups = new Map<string, PinRec[]>();
     for (const r of this.pins.values()) {
       const g = groups.get(r.pin.placeKey) ?? [];
       g.push(r);
       groups.set(r.pin.placeKey, g);
     }
-    const maxStack = this.mode === 'world' ? 4 : 6;
-    for (const g of groups.values()) {
+    this.groups = [...groups.values()];
+    for (const g of this.groups) {
       g.sort((a, b) => b.pin.count - a.pin.count || a.pin.fishKey.localeCompare(b.pin.fishKey));
-      let dy = 0;
-      g.forEach((r, i) => {
-        r.label.dy = dy;
-        r.label.hidden = i >= maxStack;
-        r.el.classList.toggle('stacked', i > 0);
-        r.el.dataset.more = i === maxStack - 1 && g.length > maxStack ? `ほか${g.length - maxStack}種` : '';
-        // 茎と輪は先頭（いちばん多い魚）だけ見せる
-        r.stem.visible = r.ring.visible = i === 0;
-        dy += 30 * pinScale(r.pin.count) + 6;
-      });
+      g.forEach((r, i) => { r.first = i === 0; r.el.classList.toggle('first', i === 0); });
     }
+  }
+  private groups: PinRec[][] = [];
+  /** 産地ごとの「ずらし量」（画面の px）。となりの産地のフィギュアと重ならないよう、毎フレーム少しずつ動かす */
+  private groupOff = new Map<string, { x: number; y: number }>();
+  private figT = 0;
+  private leaders: THREE.LineSegments | null = null;
+  private getLeaders(): THREE.LineSegments {
+    if (this.leaders) return this.leaders;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6 * 256), 3));
+    geo.setDrawRange(0, 0);
+    this.leaders = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xcfe9ff, transparent: true, opacity: 0.55, depthWrite: false }));
+    this.leaders.frustumCulled = false;
+    this.leaders.renderOrder = 4;
+    this.pinGroup.add(this.leaders);
+    return this.leaders;
+  }
+
+  /** 毎フレーム：フィギュアの大きさ・並び・向き・浮き上がりを計算する。
+   *  フィギュアはいつも画面に向かって立ち（上から見ても横から見ても形が分かる）、足もとに影を落とす。
+   *  ちがう産地のフィギュアどうしが重なるときは、画面の上で押し合ってずらし、産地とは細い線でつなぐ */
+  private updateFigures(now: number) {
+    const cam = this.camera.position;
+    const camRight = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    const camUp = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+    const camBack = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 2);
+    const W = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
+    const perPx = (d: number) => (2 * d * Math.tan((this.camera.fov * RAD) / 2)) / h;
+    const zoomK = Math.max(0.5, Math.min(3.6, (this.distance - R) / 60));
+    const perRow = this.mode === 'world' ? 5 : 4;
+    const pos = new THREE.Vector3(), foot = new THREE.Vector3(), tan = new THREE.Vector3(), roll = new THREE.Matrix4(), sc = new THREE.Vector3(), tmp = new THREE.Vector3();
+
+    // 1) 産地ごとに、フィギュアの大きさと並び（段）を決める
+    type Item = { r: PinRec; w: number; h: number; cx: number; row: number; rowBase: number; rise: number };
+    const plans = this.groups.map((g) => {
+      const d = cam.distanceTo(g[0].base);
+      const px = perPx(d);
+      // 各フィギュアの大きさ（面積が入力の数に比例するよう、√で大きくする。細長い魚も丸い貝も同じくらいの見た目の大きさに）
+      const sizes = g.map((r) => {
+        const img = r.tex.image as { width?: number; height?: number } | undefined;
+        const aspect = img && img.width && img.height ? img.width / img.height : 1.6;
+        const age = (now - r.born) / 1000;
+        const pop = this.reduced ? 1 : Math.max(0, 1 - Math.exp(-7 * age) * Math.cos(9 * age));
+        const sb = (now - r.bumpAt) / 1000;
+        const bump = r.bumpAt && sb < 0.6 && !this.reduced ? 1 + 0.35 * Math.sin((sb / 0.6) * Math.PI) : 1;
+        const S = (this.mode === 'world' ? 3.4 : 4.8) * zoomK * pinScale(r.pin.count) * pop * bump;
+        const w = S * Math.min(2.4, Math.pow(aspect, 0.62)), hh = w / aspect;
+        const labelW = (r.pin.fish[0].name.length * 11 + 34) * px;
+        return { w, h: hh, slot: Math.max(w, labelW) * 1.04, rise: Math.min(1, age * 2.2) };
+      });
+      const items: Item[] = [];
+      // 横に並べる。画面の幅に収まらなくなったら上の段へ（多い魚ほど下の段の真ん中寄り）
+      const maxRow = W * 0.84 * px;
+      const rows: number[][] = [];
+      let cur: number[] = [], curW = 0;
+      sizes.forEach((z, i) => {
+        if (cur.length && (curW + z.slot > maxRow || cur.length >= perRow)) { rows.push(cur); cur = []; curW = 0; }
+        cur.push(i); curW += z.slot;
+      });
+      if (cur.length) rows.push(cur);
+      let rowBase = 0, width = 0;
+      rows.forEach((idx, row) => {
+        const sz = idx.map((i) => sizes[i]);
+        const total = sz.reduce((s, z) => s + z.slot, 0);
+        width = Math.max(width, total);
+        let x = -total / 2;
+        idx.forEach((i) => { const z = sizes[i]; items.push({ r: g[i], w: z.w, h: z.h, cx: x + z.slot / 2, row, rowBase, rise: z.rise }); x += z.slot; });
+        rowBase += Math.max(...sz.map((z) => z.h)) * 1.02 + 24 * px;
+      });
+      // 画面上の位置と、フィギュア全体が占める四角（名札の分も含む）
+      tmp.copy(g[0].base).project(this.camera);
+      const sx = (tmp.x * 0.5 + 0.5) * W, sy = (-tmp.y * 0.5 + 0.5) * h;
+      const facing = this.nrm.copy(g[0].base).normalize().dot(this.sp.subVectors(cam, g[0].base).normalize());
+      const vis = facing > 0.12 && tmp.z < 1 && sx > -200 && sx < W + 200 && sy > -200 && sy < h + 200;
+      const key = g[0].pin.placeKey;
+      let off = this.groupOff.get(key);
+      if (!off) { off = { x: 0, y: 0 }; this.groupOff.set(key, off); }
+      const weight = g.reduce((s, r) => s + r.pin.count, 0);
+      return { g, items, px, sx, sy, wpx: width / px, hpx: (rowBase + 0.22 * (items[0]?.h ?? 0)) / px + 26, vis, off, tx: 0, ty: 0, weight };
+    });
+
+    // 2) ちがう産地どうしが重ならないよう、画面の上で押し合う（少ない方が多く動く）
+    const vis = plans.filter((p) => p.vis);
+    for (let it = 0; it < 12; it++) {
+      for (let i = 0; i < vis.length; i++) {
+        for (let j = i + 1; j < vis.length; j++) {
+          const a = vis[i], b = vis[j];
+          const ax = a.sx + a.tx, ay = a.sy + a.ty, bx = b.sx + b.tx, by = b.sy + b.ty;
+          // 少しの重なりは許す（産地からなるべく離さないため）
+          const ox = (a.wpx + b.wpx) * 0.42 - Math.abs(ax - bx);
+          // 四角は足もと（sy）から上に hpx の高さ
+          const oy = Math.min(ay, by) - Math.max(ay - a.hpx * 0.85, by - b.hpx * 0.85);
+          if (ox <= 0 || oy <= 0) continue;
+          const wa = b.weight / (a.weight + b.weight), wb = 1 - wa;
+          if (ox < oy) {
+            const dir = ax < bx || (ax === bx && i < j) ? -1 : 1;
+            a.tx += dir * ox * wa; b.tx -= dir * ox * wb;
+          } else {
+            // 上下に押す。画面の上にある方は上へ、下にある方は下へ
+            const up = ay < by ? 1 : -1;
+            a.ty -= up * oy * wa; b.ty += up * oy * wb;
+          }
+        }
+      }
+    }
+    // ずらしすぎない。なめらかに追いかける
+    const dtF = Math.min(0.5, Math.max(0, this.elapsed - this.figT));
+    this.figT = this.elapsed;
+    const k = this.reduced ? 1 : 1 - Math.exp(-dtF * 9);
+    for (const p of plans) {
+      const lim = Math.max(90, p.wpx * 1.2);
+      let tx = p.vis ? Math.max(-lim, Math.min(lim, p.tx)) : 0;
+      const ty = p.vis ? Math.max(-lim, Math.min(lim, p.ty)) : 0;
+      // 画面の外へは押し出さない
+      if (p.vis && p.sx > 0 && p.sx < W) tx = p.wpx > W - 12 ? W / 2 - p.sx : Math.max(6 + p.wpx / 2 - p.sx, Math.min(W - 6 - p.wpx / 2 - p.sx, tx));
+      p.off.x += (tx - p.off.x) * k;
+      p.off.y += (ty - p.off.y) * k;
+    }
+
+    // 3) フィギュア・影・名札・つなぐ線を置く
+    const leaders = this.getLeaders();
+    const lp = leaders.geometry.getAttribute('position') as THREE.BufferAttribute;
+    let nl = 0;
+    for (const p of plans) {
+      const g = p.g, n = g[0].normal, px = p.px;
+      // 地面に沿った横向き（影を並べる向き）
+      tan.copy(camRight).addScaledVector(n, -camRight.dot(n)).normalize();
+      const dx = p.off.x * px, dy = -p.off.y * px;
+      const moved = Math.hypot(p.off.x, p.off.y) > 10;
+      for (const z of p.items) {
+        const r = z.r;
+        const bob = this.reduced ? 0 : Math.sin(this.elapsed * 1.7 + r.phase) * 0.07 * z.h;
+        // 地面からふわっと浮き上がる
+        const ease = 1 - Math.pow(1 - z.rise, 3);
+        const lift = (0.22 * z.h + bob) * ease + z.rowBase;
+        const cx = z.cx;
+        pos.copy(r.base).addScaledVector(camRight, cx + dx).addScaledVector(camUp, lift + dy);
+        {
+          const m = r.bill.matrix;
+          m.makeBasis(camRight, camUp, camBack);
+          if (!this.reduced) m.multiply(roll.makeRotationZ(Math.sin(this.elapsed * 1.3 + r.phase) * 0.06));
+          m.scale(sc.set(z.w, z.h, 1));
+          m.setPosition(pos);
+          r.bill.matrixWorldNeedsUpdate = true;
+          // 足もとの影（地面に落とす。浮くほどうすく小さく。ずらしたときは産地に小さく残す）
+          const sx = moved ? cx * 0.25 : cx;
+          foot.copy(r.base).addScaledVector(tan, sx).setLength(r.base.length() + 0.06);
+          const sm = r.shadow.matrix;
+          const ks = (1 - Math.min(0.5, (lift / Math.max(0.001, z.h)) * 0.6)) * (moved ? 0.45 : 1);
+          sm.makeBasis(tan, n, tan.clone().cross(n).negate());
+          sm.scale(sc.set(z.w * 0.85 * ks, 1, z.w * 0.3 * ks));
+          sm.setPosition(foot);
+          r.shadow.matrixWorldNeedsUpdate = true;
+          r.shadow.visible = z.row === 0;
+          (r.shadow.material as THREE.MeshBasicMaterial).opacity = (r.el.classList.contains('dim') ? 0.15 : 0.9) * ease;
+          // 名札はフィギュアの上。タップできる範囲はフィギュア全体
+          r.label.pos.copy(pos).addScaledVector(camUp, z.h);
+          r.wPx = z.w / px; r.hPx = z.h / px;
+        }
+      }
+      // 産地から、ずらしたフィギュアの足もとへ細い線
+      if (moved && p.vis && nl < 256) {
+        const a = g[0].base, bottom = tmp.copy(a).addScaledVector(camRight, dx).addScaledVector(camUp, dy + 0.12 * (p.items[0]?.h ?? 0));
+        lp.setXYZ(nl * 2, a.x, a.y, a.z);
+        lp.setXYZ(nl * 2 + 1, bottom.x, bottom.y, bottom.z);
+        nl++;
+      }
+    }
+    lp.needsUpdate = true;
+    leaders.geometry.setDrawRange(0, nl * 2);
   }
 
   setGhosts(ids: string[]) {
@@ -477,16 +676,8 @@ export class Globe {
     if (m !== this.mode) { this.mode = m; this.onModeChange(m); }
 
     if (this.layers.currents) this.updateArrows(this.reduced ? 0 : this.elapsed);
-    for (const r of this.pins.values()) {
-      const age = Math.min(1, (now - r.born) / 700);
-      const e = this.reduced ? 1 : 1 - Math.pow(1 - age, 3);
-      r.stem.scale.y += (r.h * e - r.stem.scale.y) * 0.25;
-      const pulse = this.reduced ? 0 : (this.elapsed * 0.8 + r.pin.lat * 0.1) % 1;
-      const s = pinScale(r.pin.count) * (1 + pulse * 1.3);
-      r.ring.scale.set(s, 1, s);
-      (r.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - pulse);
-      r.label.pos.copy(r.base).addScaledVector(r.normal, r.stem.scale.y);
-    }
+    this.camera.updateMatrixWorld();
+    this.updateFigures(now);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
     this.frames++;
@@ -538,7 +729,9 @@ export class Globe {
   }
 
   private sp = new THREE.Vector3();
+  private get pinOf() { const m = new Map<HTMLElement, PinRec>(); for (const r of this.pins.values()) m.set(r.el, r); return m; }
   private placeLabels() {
+    const pinOf = this.pinOf;
     const w = this.host.clientWidth, h = this.host.clientHeight;
     const cam = this.camera.position;
     const near = this.distance < R * 2.3, far = this.distance > R * 1.6;
@@ -552,11 +745,14 @@ export class Globe {
       this.sp.copy(l.pos).project(this.camera);
       const x = (this.sp.x * 0.5 + 0.5) * w, y = (-this.sp.y * 0.5 + 0.5) * h;
       const off = facing < 0.12 || x < -80 || x > w + 80 || y < -80 || y > h + 80;
-      const yy = y - (l.dy ?? 0);
-      l.el.style.transform = `translate3d(${x.toFixed(1)}px,${yy.toFixed(1)}px,0)`;
+      l.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
       if (l.kind === 'pin') {
-        l.el.style.zIndex = String(Math.round(y) * 10 - Math.round((l.dy ?? 0) / 30));
-        l.el.style.visibility = off || l.hidden ? 'hidden' : '';
+        const r = pinOf.get(l.el);
+        if (r) { l.el.style.width = `${Math.max(36, r.wPx).toFixed(0)}px`; l.el.style.height = `${Math.max(30, r.hPx).toFixed(0)}px`; }
+        l.el.style.zIndex = String(Math.round(y));
+        l.el.style.visibility = off ? 'hidden' : '';
+        // 魚の上に重なる海や海流の名前は隠す
+        if (collide && !off && !l.el.classList.contains('dim')) placed.push(l.el.getBoundingClientRect());
         continue;
       }
       if (!collide) continue;
@@ -578,6 +774,8 @@ export class Globe {
       warm: this.warmMesh?.count ?? 0, cold: this.coldMesh?.count ?? 0,
       arrows: (this.warmMesh?.count ?? 0) + (this.coldMesh?.count ?? 0),
       meet: this.flows.filter((f) => f.kind === 'meet').length, pins: this.pins.size,
+      figs: [...this.pins.values()].filter((r) => ((r.tex.image as { width?: number } | undefined)?.width ?? 0) > 0).length,
+      figW: Object.fromEntries([...this.pins.values()].map((r) => [r.pin.key, Math.round(r.wPx)])),
     };
   }
   arrowSample(): string {

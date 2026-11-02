@@ -117,7 +117,8 @@ describe('集計', () => {
   });
   it('件数が多いほどピンは大きい（上限あり）', () => {
     expect(pinScale(4)).toBeGreaterThan(pinScale(1));
-    expect(pinScale(1000)).toBeLessThanOrEqual(2.1);
+    expect(pinScale(1000)).toBeLessThanOrEqual(2.8);
+    expect(pinScale(9) / pinScale(1)).toBeGreaterThan(1.5);
   });
   it('絞り込み', () => {
     expect(es.filter((e) => matches(e, 'overseas', null)).length).toBe(3);

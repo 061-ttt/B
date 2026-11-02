@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-type W = Window & { __sm?: { scene: { frames: number; info(): Record<string, number | string>; arrowSample(): string; flyTo(lon: number, lat: number, d?: number, dur?: number): void } } };
+type W = Window & { __sm?: { scene: { frames: number; info(): Record<string, number | string | Record<string, number>>; arrowSample(): string; flyTo(lon: number, lat: number, d?: number, dur?: number): void } } };
 
 async function ready(page: Page) {
   await expect(page.locator('#skeleton')).toHaveCount(0, { timeout: 45_000 });
@@ -118,13 +118,21 @@ test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別�
   const salmon = page.locator('.pin[data-key="hokkaido|salmon"]');
   await expect(salmon).toBeVisible();
   await expect(salmon.locator('.pin-name')).toContainText('さけ');
-  await expect(salmon.locator('img.pin-photo')).toHaveJSProperty('complete', true);
+  // 立体の魚（切り抜きフィギュア）が地球儀の上に立っている
+  await expect.poll(() => page.evaluate(() => Number((window as W).__sm!.scene.info().figs))).toBe(1);
+  const figW = () => page.evaluate(() => ((window as W).__sm!.scene.info().figW as Record<string, number>)['hokkaido|salmon']);
+  await expect.poll(figW).toBeGreaterThan(30);
+  await page.waitForTimeout(800);
+  const w1 = await figW();
   await expect(salmon.locator('.pin-count')).toHaveText('1');
   const s1 = Number(await salmon.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
   await addEntry(page, 'さけ', 'ほっかいどう');
   await expect(salmon.locator('.pin-count')).toHaveText('2');
   const s2 = Number(await salmon.evaluate((e) => getComputedStyle(e).getPropertyValue('--s')));
   expect(s2).toBeGreaterThan(s1);
+  // フィギュアそのものも大きくなる
+  await page.waitForTimeout(900);
+  expect(await figW()).toBeGreaterThan(w1 * 1.1);
   // 同じ北海道でも、さんま・ほたては別のピン
   await addEntry(page, 'さんま', '北海道');
   await addEntry(page, 'ほたて', '北海道');
@@ -132,10 +140,16 @@ test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別�
   await expect(hk).toHaveCount(3);
   await expect(page.locator('.pin[data-key="hokkaido|saury"] .pin-count')).toHaveText('1');
   await expect(page.locator('.pin[data-key="hokkaido|scallop"]')).toBeVisible();
-  // 重ならずに縦に並ぶ
-  const ys = await hk.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => [r.top, r.bottom]));
-  ys.sort((a, b) => a[0] - b[0]);
-  for (let i = 1; i < ys.length; i++) expect(ys[i][0]).toBeGreaterThanOrEqual(ys[i - 1][1] - 2);
+  // 名札が重ならずに並ぶ
+  await page.waitForTimeout(900);
+  const rs = await page.locator('.pin[data-place=hokkaido] .pin-tag').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+    const [a, b] = [rs[i], rs[j]];
+    const overlap = a[0] < b[2] - 2 && b[0] < a[2] - 2 && a[1] < b[3] - 2 && b[1] < a[3] - 2;
+    expect(overlap, `${i} と ${j} の名札が重なっている`).toBe(false);
+  }
+  // 3種類とも立体の魚が立っている
+  await expect.poll(() => page.evaluate(() => Number((window as W).__sm!.scene.info().figs))).toBe(3);
   await expect(page.getByTestId('total')).toHaveText('4');
   // ピンをタップすると、その産地の魚が一覧で出る
   await page.locator('.pin[data-key="hokkaido|saury"]').click();

@@ -81,7 +81,7 @@ export function aggregate(entries: Entry[], view: ViewId): Pin[] {
 
 /** ピンの大きさ：件数の平方根で大きくする（面積が件数に比例） */
 export function pinScale(count: number): number {
-  return Math.min(2.1, 0.8 + 0.22 * Math.sqrt(Math.max(1, count)));
+  return Math.min(2.8, 0.72 + 0.3 * Math.sqrt(Math.max(1, count)));
 }
 
 export interface Stats {
