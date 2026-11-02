@@ -392,9 +392,17 @@ export class Globe {
       } else if (rec.pin.count !== pin.count) {
         rec.el.classList.remove('bump'); void rec.el.offsetWidth; rec.el.classList.add('bump');
       }
-      const ph = photo(top.id, true);
-      const pic = ph ? `<img class="pin-photo" src="${ph}" alt="" decoding="async">` : iconSvg(f?.icon ?? 'fish', color, 30);
-      rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${pic}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
+      // 中身が変わったピンだけ書きかえる（60人分が一度に届いても速く）
+      const sig = `${top.name}|${pin.name}|${color}`;
+      if (rec.el.dataset.sig !== sig) {
+        const ph = photo(top.id, true);
+        const pic = ph ? `<img class="pin-photo" src="${ph}" alt="" decoding="async">` : iconSvg(f?.icon ?? 'fish', color, 30);
+        rec.el.innerHTML = `<div class="pin-bubble" style="--c:${color}">${pic}<span class="pin-name">${esc(top.name)}</span><span class="pin-count">${pin.count}</span></div><div class="pin-place">${esc(pin.name)}</div>`;
+        rec.el.dataset.sig = sig;
+      } else {
+        const c = rec.el.querySelector('.pin-count');
+        if (c && c.textContent !== String(pin.count)) c.textContent = String(pin.count);
+      }
       rec.el.style.setProperty('--s', String(pinScale(pin.count)));
       rec.el.setAttribute('aria-label', `${pin.name}：${pin.fish.map((x) => `${x.name}${x.count}件`).join('、')}`);
       (rec.stem.material as THREE.MeshBasicMaterial).color.set(color);

@@ -49,7 +49,7 @@ export function MapView() {
   }, []);
 
   useEffect(() => {
-    const un = [entries, filter, focusFish, view].map((s) => s.subscribe(() => redraw()));
+    const un = [entries, filter, focusFish, view].map((s) => s.subscribe(() => scheduleRedraw()));
     return () => un.forEach((u) => u());
   }, []);
 
@@ -79,6 +79,14 @@ export function MapView() {
       {nogl && <div class="nogl"><div><img src={nogl} alt="海の深さの図" /><p>この端末では地球儀を表示できません</p></div></div>}
     </div>
   );
+}
+
+// 描き直しは1フレームに1回まで
+let redrawPending = false;
+function scheduleRedraw() {
+  if (redrawPending) return;
+  redrawPending = true;
+  requestAnimationFrame(() => { redrawPending = false; redraw(); });
 }
 
 function redraw() {

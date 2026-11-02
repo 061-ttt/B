@@ -3,6 +3,7 @@ import { appendTo, entries, showToast, tab, worksheet } from '../state';
 import { factLines, localQuestions, stats } from '../core/model';
 import { aiQuestions } from '../core/sync';
 import { G } from './Glyph';
+import art from '../assets/art/sheet.webp';
 
 const STARTERS = [
   '〇〇が多いのは、〜だからだと思う。',
@@ -40,7 +41,7 @@ export function Worksheet() {
 
   return (
     <section class={`panel ${tab.value === 'sheet' ? 'on' : ''}`} aria-label="ワークシート" data-testid="sheet" aria-hidden={tab.value !== 'sheet'}>
-      <div class="ph"><h2>ワーク<span class="em">シート</span></h2></div>
+      <div class="ph"><h2>ワーク<span class="em">シート</span></h2><img class="ph-art" src={art} alt="" /></div>
       <div class="rule"><i /><span>地球儀を見て、<b>根拠</b>をもって考える</span><s /></div>
 
       {FIELDS.map((f) => (

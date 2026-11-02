@@ -1,0 +1,12 @@
+import { chromium } from '@playwright/test';
+const SP = process.argv[2];
+const b = await chromium.launch({ executablePath: process.env.PW_CHROME_PATH, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage();
+await p.goto(process.env.BASE ?? 'http://127.0.0.1:8787/');
+await p.waitForFunction(() => !document.getElementById('skeleton'), null, { timeout: 60000 });
+await p.waitForTimeout(1500);
+await p.screenshot({ path: `${SP}/intro1.png` });
+await p.locator('.intro').evaluate((e) => e.scrollTo(0, 9999));
+await p.waitForTimeout(600);
+await p.screenshot({ path: `${SP}/intro2.png` });
+await b.close();

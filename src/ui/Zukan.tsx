@@ -4,6 +4,7 @@ import { FISH, CURRENT_LABEL, type Fish } from '../data/fish';
 import { PLACE_BY_ID } from '../data/places';
 import { entries, focusFish, tab } from '../state';
 import { iconSvg } from './icons';
+import art from '../assets/art/zukan.webp';
 import { CREDITS, photo } from './photo';
 import { G } from './Glyph';
 
@@ -35,7 +36,7 @@ export function Zukan() {
   });
   return (
     <section class={`panel ${tab.value === 'zukan' ? 'on' : ''}`} aria-label="図鑑" data-testid="zukan" aria-hidden={tab.value !== 'zukan'}>
-      <div class="ph"><h2><span class="em">魚</span>の図鑑</h2><span class="cnt">{list.length} / {FISH.length}</span></div>
+      <div class="ph"><h2><span class="em">魚</span>の図鑑</h2><span class="cnt">{list.length} / {FISH.length}</span><img class="ph-art" src={art} alt="" /></div>
       <div class="rule"><i /><span>タップで<b>くわしく</b>開く</span><s /></div>
       <input class="search glass" type="search" placeholder="魚の名前でさがす" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label="魚の名前でさがす" />
       <div class="chips">

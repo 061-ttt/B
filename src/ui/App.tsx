@@ -5,6 +5,7 @@ import { Zukan } from './Zukan';
 import { Worksheet } from './Worksheet';
 import { G } from './Glyph';
 import { QrBig, QrScanner } from './Qr';
+import { Intro, intro } from './Intro';
 
 const TABS: { id: Tab; label: string; icon: () => preact.JSX.Element }[] = [
   { id: 'map', label: '地球儀', icon: G.globe },
@@ -25,6 +26,7 @@ export function App() {
       <Sheets />
       <QrBig />
       <QrScanner />
+      <Intro />
       <Toast />
     </>
   );
@@ -40,6 +42,7 @@ function MapTop() {
         <button aria-pressed={v === 'world'} onClick={() => globe?.flyWorld()} data-testid="view-world">世界</button>
       </div>
       <span class="spacer" />
+      <button class="icon-btn glass" aria-label="使い方" onClick={() => (intro.value = true)} data-testid="help-btn"><b style={{ fontSize: '17px' }}>?</b></button>
       <button class="icon-btn glass" aria-label="表示と凡例" onClick={() => (sheet.value = 'legend')} data-testid="legend-btn"><G.layers /></button>
       <button class="icon-btn glass" aria-label="クラス" onClick={() => (sheet.value = 'room')} data-testid="room-btn">
         <span class={`status-dot ${mode.value}`} />{room.value ?? <G.users />}
