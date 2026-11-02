@@ -445,6 +445,8 @@ export class Globe {
     if (!this.active) { this.raf = 0; return; }
     this.raf = requestAnimationFrame(this.loop);
     const now = performance.now();
+    // 描画が重い端末では、1秒あたりの描画回数を自動で減らす（古いタブレットでも操作が止まらないように）
+    if (this.minGap && now - this.lastT < this.minGap && !this.tween) return;
     const dt = Math.min(0.05, (now - this.lastT) / 1000);
     this.lastT = now;
     this.elapsed += dt;
@@ -485,11 +487,16 @@ export class Globe {
   };
 
   private slow = 0;
+  private minGap = 0;
+  private avgMs = 16;
   private adapt(ms: number, dt: number) {
+    this.avgMs = this.avgMs * 0.9 + ms * 0.1;
     if (this.frames < 30) return;
     this.slow = dt > 0.045 || ms > 30 ? this.slow + 1 : Math.max(0, this.slow - 0.5);
     const pr = this.renderer.getPixelRatio();
-    if (this.slow > 40 && pr > 1) { this.renderer.setPixelRatio(Math.max(1, pr - 0.5)); this.resize(); this.slow = 0; }
+    if (this.slow > 40 && pr > 1) { this.renderer.setPixelRatio(Math.max(1, pr - 0.5)); this.resize(); this.slow = 0; return; }
+    // 解像度を下げてもまだ重いときは、30回/秒 → 20回/秒 に落とす。軽くなったら戻す
+    this.minGap = this.avgMs > 40 ? 50 : this.avgMs > 22 ? 33 : 0;
   }
 
   private mtx = new THREE.Matrix4();

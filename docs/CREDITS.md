@@ -33,3 +33,4 @@
 | こんぶ | [Kelp_in_Neskowin.jpg](https://commons.wikimedia.org/wiki/File:Kelp_in_Neskowin.jpg) | Anna Maj Michelson, Portland, United States | CC BY 2.0 |
 | しらす | [Chirimenjako_(zoom).JPG](https://commons.wikimedia.org/wiki/File:Chirimenjako_%28zoom%29.JPG) | Alpsdake | CC BY-SA 4.0 |
 | にしん・数の子 | [Clupea_pallasii_by_OpenCage.jpg](https://commons.wikimedia.org/wiki/File:Clupea_pallasii_by_OpenCage.jpg) | （ファイルのページを参照） | CC BY-SA 2.5 |
+| ひらまさ | [Yellowtail_amberjack.jpg](https://commons.wikimedia.org/wiki/File:Yellowtail_amberjack.jpg) | brian gratwicke | CC BY 2.0 |

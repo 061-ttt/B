@@ -79,12 +79,20 @@ export const FISH: Fish[] = [
     why: '春と秋で、かつおがとれる場所が変わるのはなぜだろう？',
   },
   {
-    id: 'yellowtail', name: 'ぶり・はまち', kanji: '鰤', aliases: ['ぶり', 'はまち', 'いなだ', 'わらさ', 'かんぱち', 'ひらまさ'],
+    id: 'yellowtail', name: 'ぶり・はまち', kanji: '鰤', aliases: ['ぶり', 'はまち', 'いなだ', 'わらさ', 'かんぱち'],
     icon: 'fish', color: '#ffd54f', current: 'warm', method: 'both',
     domestic: ['kagoshima', 'oita', 'ehime', 'toyama'], overseas: [],
     season: '冬', how: '定置網でとる天然ものと、いけすで育てる養殖ものがある',
     point: '大きくなるにつれて名前が変わる出世魚。九州や四国では養殖がさかん。冬の富山湾の天然ぶりも有名。',
     why: '養殖が九州や四国の海でさかんなのは、どんな理由があるのだろう？',
+  },
+  {
+    id: 'hiramasa', name: 'ひらまさ', kanji: '平政', aliases: ['ひらまさ', 'ひらす', '平政'],
+    icon: 'fish', color: '#d4e157', current: 'warm', method: 'both',
+    domestic: ['nagasaki', 'shimane', 'kagoshima', 'oita'], overseas: ['australia'],
+    season: '春〜夏', how: '一本釣りや定置網でとる天然ものと、いけすで育てる養殖ものがある。養殖の稚魚は、海でとったものを育てることが多い',
+    point: 'ぶりとよく似ているが、口の角が丸い・胸びれが体の黄色い線に重なる・体が少し平たい、などでちがいが分かる。ぶりより水あげが少なく、オーストラリアで養殖されたものが輸入されることもある。',
+    why: 'ぶりとひらまさはよく似ているのに、おいしい季節（旬）がちがうのはなぜだろう？',
   },
   {
     id: 'seabream', name: 'たい', kanji: '鯛', aliases: ['たい', 'まだい', '真鯛', 'れんこだい', 'ちだい'],

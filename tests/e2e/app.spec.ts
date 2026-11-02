@@ -259,11 +259,16 @@ test('8. 2台の端末でリアルタイムに集まる', async ({ browser }) =>
   await expect(B.getByTestId('total')).toHaveText('1');
   await addEntry(B, 'かき', '広島');
   await expect(A.locator('.pin[data-key="hiroshima|oyster"] .pin-count')).toHaveText('2', { timeout: 10_000 });
-  // 再読み込みしてもサーバーから戻る
+  // 再読み込みしてもサーバーから戻る（その間はAの描画を止めて、Bの読み込みにCPUを回す）
+  await A.evaluate(() => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(false));
   await B.reload();
   await ready(B);
   await expect(B.getByTestId('total')).toHaveText('2');
+  await A.evaluate(() => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(true));
   // 人数
+  // テスト用の機械はGPUなし・CPU2つのため、2台分の地球儀を同時に描くと非常に重い。
+  // 実際の授業では1台に1つずつなので、ここではBの描画を止めてAの操作を確かめる
+  await B.evaluate(() => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(false));
   await A.getByTestId('room-btn').click();
   await expect(A.getByTestId('room-sheet')).toContainText('2台');
   await A.context().close();
@@ -406,4 +411,28 @@ test('13. 60人が同時に入力しても、すぐに全部が地球儀に出�
   expect(await page.locator('.pin').count()).toBeGreaterThan(20);
   await expect(page.locator('#memo')).toBeEditable();
   socks.forEach((w) => w.close());
+});
+
+test('14. ひらまさ：図鑑で写真と情報が見られ、ぶりとは別のピンになる', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await page.locator('[data-tab=zukan]').click();
+  await page.getByRole('searchbox', { name: '魚の名前でさがす' }).fill('ひらまさ');
+  const item = page.locator('[data-fish=hiramasa]');
+  await expect(item).toBeVisible();
+  await expect(page.locator('[data-fish]')).toHaveCount(1);
+  await item.locator('.acc-head').click();
+  await expect(item.locator('.hero img')).toBeVisible();
+  await expect.poll(() => item.locator('.hero img').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(300);
+  await expect(item).toContainText('旬');
+  await expect(item).toContainText('春〜夏');
+  await expect(item).toContainText('長崎');
+  await expect(item.locator('.why')).toContainText('ぶり');
+  // 地球儀では、同じ鹿児島でも ぶり と ひらまさ は別のピン
+  await page.locator('[data-tab=map]').click();
+  await addEntry(page, 'ぶり', '鹿児島');
+  await addEntry(page, 'ひらまさ', '鹿児島');
+  await expect(page.locator('.pin[data-key="kagoshima|yellowtail"]')).toBeVisible();
+  await expect(page.locator('.pin[data-key="kagoshima|hiramasa"]')).toBeVisible();
+  await expect(page.locator('.pin[data-key="kagoshima|hiramasa"] .pin-name')).toHaveText('ひらまさ');
 });

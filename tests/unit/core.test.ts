@@ -30,6 +30,9 @@ describe('値札の解析（AIなし）', () => {
     ['北太平洋 めばちまぐろ', 'tuna', 'north-pacific', 'unknown'],
     ['インドネシア産 えび', 'shrimp', 'indonesia', 'unknown'],
     ['天然 ぶり 富山県氷見', 'yellowtail', 'himi', 'wild'],
+    ['長崎県産 ひらまさ 天然', 'hiramasa', 'nagasaki', 'wild'],
+    ['ヒラス 鹿児島 養殖', 'hiramasa', 'kagoshima', 'farmed'],
+    ['オーストラリア産 ヒラマサ', 'hiramasa', 'australia', 'unknown'],
     ['ＣＨＩＬＥ チリ産 トラウト', 'salmon', 'chile', 'unknown'],
   ])('%s', (text, fish, place, method) => {
     const r = parseTag(text);
