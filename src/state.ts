@@ -1,4 +1,4 @@
-import { signal, computed, effect, batch } from '@preact/signals';
+import { signal, effect, batch } from '@preact/signals';
 import type { Entry, FilterId, ViewId } from './core/model';
 import { uid } from './core/model';
 
@@ -66,29 +66,12 @@ export function removeEntry(id: string) {
   entries.value = entries.value.filter((x) => x.id !== id);
 }
 
-// ── メモ（index.html のメモ欄から、JS読み込み前でも追加される） ──
-export interface Memo { id: string; text: string; createdAt: number }
-function loadMemos(): Memo[] {
-  // 以前の版のタスク（やること・とりくみ中・できた）は削除し、メモだけ残す
-  const raw = ls.get<(Memo & { status?: string })[]>('sm.cards', []);
-  const memos = raw.filter((c) => !c.status || c.status === 'memo').map(({ id, text, createdAt }) => ({ id, text, createdAt }));
-  if (memos.length !== raw.length) ls.set('sm.cards', memos);
-  try { localStorage.removeItem('sm.seeded'); } catch { /* */ }
-  return memos;
-}
-export const memos = signal<Memo[]>(loadMemos());
-effect(() => ls.set('sm.cards', memos.value));
-window.addEventListener('sm:cards', () => { memos.value = loadMemos(); });
-
-export function deleteMemo(id: string) {
-  const i = memos.value.findIndex((x) => x.id === id);
-  if (i < 0) return;
-  const m = memos.value[i];
-  memos.value = memos.value.filter((x) => x.id !== id);
-  showToast('メモを消しました', { label: 'もとにもどす', run: () => { const a = [...memos.value]; a.splice(i, 0, m); memos.value = a; } });
-}
+// 以前の版のメモ・タスクのデータは使わないので消す
+for (const k of ['sm.cards', 'sm.seeded', 'sm.draft']) { try { localStorage.removeItem(k); } catch { /* */ } }
 
 // ── ワークシート ──
+// シートの内容はこのタブレットの中（localStorage）だけに保存し、サーバーには送らない。
+// 共有されるのは地球儀に入力した魚と産地だけ（core/sync.ts）
 export interface Worksheet { fact: string; reason: string; next: string; checks: boolean[] }
 export const worksheet = signal<Worksheet>(ls.get('sm.sheet', { fact: '', reason: '', next: '', checks: [false, false, false] }));
 effect(() => ls.set('sm.sheet', worksheet.value));
@@ -96,11 +79,5 @@ export function appendTo(field: 'fact' | 'reason' | 'next', text: string) {
   const cur = worksheet.value[field];
   worksheet.value = { ...worksheet.value, [field]: cur ? `${cur.replace(/\s+$/, '')}\n${text}` : text };
 }
-
-export const memoCount = computed(() => memos.value.length);
-effect(() => {
-  const el = document.getElementById('memo-count');
-  if (el) el.textContent = String(memoCount.value);
-});
 
 export { batch };

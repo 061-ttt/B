@@ -16,7 +16,6 @@ export const G = {
   mic: () => <svg viewBox="0 0 24 24" {...P}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>,
   spark: () => <svg viewBox="0 0 24 24" {...P}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" /></svg>,
   target: () => <svg viewBox="0 0 24 24" {...P}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg>,
-  printer: () => <svg viewBox="0 0 24 24" {...P}><path d="M7 9V3h10v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></svg>,
   x: () => <svg viewBox="0 0 24 24" {...P}><path d="M6 6l12 12M18 6 6 18" /></svg>,
   qr: () => <svg viewBox="0 0 24 24" {...P}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" /></svg>,
   home: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 11 12 4l8 7" /><path d="M6 10v10h12V10" /></svg>,

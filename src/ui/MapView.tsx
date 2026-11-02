@@ -91,10 +91,6 @@ function redraw() {
 
 const FILTERS: { id: FilterId; label: string; sw?: string }[] = [
   { id: 'all', label: 'すべて' },
-  { id: 'domestic', label: '国内' },
-  { id: 'overseas', label: '外国・遠くの海' },
-  { id: 'wild', label: '天然' },
-  { id: 'farmed', label: '養殖' },
   { id: 'warm', label: '暖流の魚', sw: 'var(--warm)' },
   { id: 'cold', label: '寒流の魚', sw: 'var(--cold)' },
 ];

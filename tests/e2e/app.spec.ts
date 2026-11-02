@@ -31,30 +31,23 @@ test.afterEach(() => {
   expect(errors, `コンソールエラー: ${errors.join('\n')}`).toEqual([]);
 });
 
-test('1. 開いた瞬間にメモでき、JSを待たずに保存される', async ({ page }) => {
-  // アプリ本体のJSをわざと3秒遅らせる
-  await page.route(/\/assets\/index-.*\.js$/, async (r) => { await new Promise((s) => setTimeout(s, 3000)); await r.continue(); });
-  await page.goto('/', { waitUntil: 'commit' });
-  await expect(page.locator('#skeleton')).toBeVisible();
-  const memo = page.locator('#memo');
-  await expect(memo).toBeEditable();
-  await memo.fill('サーモンはチリが多い？');
-  await memo.press('Enter');
-  await expect(page.locator('#memo-count')).toHaveText('1');
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sm.cards') || '[]'));
-  expect(stored[0].text).toBe('サーモンはチリが多い？');
-  // 本体はまだ読み込まれていない（スケルトンが残っている）
-  await expect(page.locator('#skeleton')).toBeVisible();
+test('1. メモ欄・印刷はなく、絞り込みは「すべて・暖流の魚・寒流の魚」だけ', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('sm.cards', JSON.stringify([{ id: 'old', text: '前の版のメモ', status: 'memo', createdAt: 1 }]));
+  });
+  await page.goto('/');
   await ready(page);
-  // 書きかけも残る
-  await memo.fill('書きかけ');
-  await page.reload();
-  await expect(page.locator('#memo')).toHaveValue('書きかけ');
-  await ready(page);
-  await expect(page.locator('#memo-count')).toHaveText('1');
-  await page.locator('#memo-count').click();
-  await expect(page.getByTestId('sheet')).toHaveClass(/(^|\s)on(\s|$)/);
-  await expect(page.getByTestId('memo-list')).toContainText('サーモンはチリが多い？');
+  await expect(page.locator('#memo')).toHaveCount(0);
+  await expect(page.locator('#memo-count')).toHaveCount(0);
+  await expect(page.locator('.chips [data-filter]')).toHaveText(['すべて', '暖流の魚', '寒流の魚']);
+  // 以前の版のメモのデータも残らない
+  expect(await page.evaluate(() => localStorage.getItem('sm.cards'))).toBeNull();
+  await page.locator('[data-tab=sheet]').click();
+  await expect(page.getByTestId('memo-list')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '印刷' })).toHaveCount(0);
+  await expect(page.getByTestId('sheet')).not.toContainText('メモ');
 });
 
 test('2. 全画面スケルトン → 地図の準備後に消える', async ({ page }) => {
@@ -147,7 +140,7 @@ test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別�
   await expect(sheet.locator('.pin-item.on')).toContainText('さんま');
 });
 
-test('5. 値札の文字から読み取り、国内・外国で絞り込む', async ({ page }) => {
+test('5. 値札の文字から読み取り、暖流・寒流の魚で絞り込む', async ({ page }) => {
   await page.goto('/');
   await ready(page);
   await addEntry(page, 'さば', '銚子');
@@ -165,46 +158,63 @@ test('5. 値札の文字から読み取り、国内・外国で絞り込む', as
   const japan = page.locator('.pin[data-key="japan|mackerel"]');
   await expect(chile).toBeVisible();
   await expect(japan).toBeAttached();
-  await page.locator('[data-filter=domestic]').click();
+  // さけ＝寒流の魚、さば＝暖流の魚
+  await page.locator('[data-filter=warm]').click();
   await expect(chile).toHaveClass(/dim/);
   await expect(japan).not.toHaveClass(/dim/);
-  await page.locator('[data-filter=farmed]').click();
+  await page.locator('[data-filter=cold]').click();
   await expect(chile).not.toHaveClass(/dim/);
   await expect(japan).toHaveClass(/dim/);
+  await page.locator('[data-filter=all]').click();
+  await expect(chile).not.toHaveClass(/dim/);
+  await expect(japan).not.toHaveClass(/dim/);
 });
 
-test('6. タスクはなく、以前のタスクも消える。メモはシートで使える', async ({ page }) => {
-  await page.addInitScript(() => {
-    if (sessionStorage.getItem('seeded')) return;
-    sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('sm.cards', JSON.stringify([
-      { id: 'seed0', text: '値札の産地を確かめる', status: 'todo', createdAt: 1 },
-      { id: 'seed1', text: '次に調べたいことを書く', status: 'done', createdAt: 2 },
-      { id: 'cold1', text: '北の魚は寒流と関係ありそう', status: 'memo', createdAt: 3 },
-    ]));
-    localStorage.setItem('sm.seeded', 'true');
-  });
-  await page.goto('/');
-  await ready(page);
-  await expect(page.locator('[data-tab]')).toHaveCount(3);
-  await expect(page.locator('[data-tab=tasks]')).toHaveCount(0);
-  await expect(page.locator('#memo-count')).toHaveText('1');
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sm.cards') || '[]'));
-  expect(stored.map((c: { id: string }) => c.id)).toEqual(['cold1']);
-  await page.locator('[data-tab=sheet]').click();
-  const memo = page.locator('[data-memo=cold1]');
-  await expect(memo).toContainText('寒流');
-  await memo.getByRole('button', { name: '02 予想へ' }).click();
-  await expect(page.getByTestId('ws-reason')).toHaveValue('北の魚は寒流と関係ありそう');
-  await memo.getByRole('button', { name: 'このメモを消す' }).click();
-  await expect(page.locator('[data-memo]')).toHaveCount(0);
-  await expect(page.locator('#memo-count')).toHaveText('0');
-  await page.getByTestId('toast').getByRole('button', { name: 'もとにもどす' }).click();
-  await expect(page.locator('[data-memo=cold1]')).toBeVisible();
-  // 新しいメモはすぐ一覧に入る
-  await page.locator('#memo').fill('チリのサーモンは養殖');
-  await page.locator('#memo').press('Enter');
-  await expect(page.locator('[data-memo]')).toHaveCount(2);
+test('6. シートは自分のタブレットだけ、地球儀の魚はクラスで共有', async ({ browser }) => {
+  const opts = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
+  const room = await (await fetch('http://127.0.0.1:8787/api/rooms', { method: 'POST', body: '{}' })).json();
+  const A = await (await browser.newContext(opts)).newPage();
+  const B = await (await browser.newContext(opts)).newPage();
+  const pause = (p: typeof A) => p.evaluate(() => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(false));
+  const sent: string[] = [];
+  for (const p of [A, B]) p.on('websocket', (ws) => ws.on('framesent', (f) => sent.push(String(f.payload))));
+  await A.goto(`/?room=${room.code}`);
+  await ready(A);
+  await pause(A);
+  await B.goto(`/?room=${room.code}`);
+  await ready(B);
+  await pause(B);
+  await expect(A.locator('.status-dot.live')).toBeVisible();
+  await expect(B.locator('.status-dot.live')).toBeVisible();
+  // A がシートに書く
+  await A.locator('[data-tab=sheet]').click();
+  await A.getByTestId('ws-fact').fill('北海道は寒流の魚が多い');
+  await A.getByTestId('ws-reason').fill('親潮が流れているから');
+  await A.getByTestId('ws-next').fill('なぜ親潮の近くは魚が多いのか');
+  await A.locator('.checks input').first().check();
+  // B のシートには出ない
+  await B.locator('[data-tab=sheet]').click();
+  await expect(B.getByTestId('ws-fact')).toHaveValue('');
+  await expect(B.getByTestId('ws-reason')).toHaveValue('');
+  await expect(B.getByTestId('ws-next')).toHaveValue('');
+  await expect(B.locator('.checks input').first()).not.toBeChecked();
+  // A を開き直しても自分の内容は残る
+  await A.reload();
+  await ready(A);
+  await pause(A);
+  await A.locator('[data-tab=sheet]').click();
+  await expect(A.getByTestId('ws-fact')).toHaveValue('北海道は寒流の魚が多い');
+  await expect(A.locator('.checks input').first()).toBeChecked();
+  // 地球儀の魚は共有される
+  await A.locator('[data-tab=map]').click();
+  await addEntry(A, 'さけ', '北海道');
+  await B.locator('[data-tab=map]').click();
+  await expect(B.getByTestId('total')).toHaveText('1', { timeout: 10_000 });
+  // シートの文はサーバーに一度も送られていない
+  expect(sent.join('\n')).not.toContain('親潮');
+  expect(sent.join('\n')).toContain('salmon');
+  await A.context().close();
+  await B.context().close();
 });
 
 test('7. 図鑑のアコーディオンと地図の連動', async ({ page }) => {
@@ -275,7 +285,7 @@ test('8. 2台の端末でリアルタイムに集まる', async ({ browser }) =>
   await B.context().close();
 });
 
-test('9. AIが使えなくてもワークシートが動く（事実・問いのたね・印刷用）', async ({ page }) => {
+test('9. AIが使えなくてもワークシートが動く（事実・問いのたね）', async ({ page }) => {
   await page.goto('/');
   await ready(page);
   const health = await page.evaluate(() => fetch('/api/health').then((r) => r.json()));
@@ -312,7 +322,6 @@ test('10. 横スクロールなし・全タブでレイアウトが崩れない'
   }
   // タブバーとメモ欄は常に見える
   await expect(page.locator('.tabbar')).toBeInViewport();
-  await expect(page.locator('#memo')).toBeInViewport();
 });
 
 test('11. 先生がクラスをつくると大きなQRコードが出て、読み取るとそのクラスのリンクになる', async ({ page }) => {
@@ -322,7 +331,8 @@ test('11. 先生がクラスをつくると大きなQRコードが出て、読�
   await page.getByTestId('create-room').click();
   const big = page.getByTestId('qr-big');
   await expect(big).toBeVisible();
-  await page.waitForTimeout(900); // 出てくるアニメーションが終わるまで
+  // 出てくるアニメーションが終わるまで待つ
+  await page.getByTestId('qr-big-svg').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   const code = (await big.locator('.code').textContent())!.trim();
   expect(code).toMatch(/^[A-Z0-9]{6}$/);
   // 画面に映ったQRコードを実際に読み取る
@@ -409,7 +419,6 @@ test('13. 60人が同時に入力しても、すぐに全部が地球儀に出�
   await expect(page.getByTestId('total')).toHaveText('178');
   // 産地×魚のピンが出ている
   expect(await page.locator('.pin').count()).toBeGreaterThan(20);
-  await expect(page.locator('#memo')).toBeEditable();
   socks.forEach((w) => w.close());
 });
 

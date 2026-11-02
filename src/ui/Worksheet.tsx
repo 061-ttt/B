@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { appendTo, deleteMemo, entries, memos, showToast, tab, worksheet } from '../state';
+import { appendTo, entries, showToast, tab, worksheet } from '../state';
 import { factLines, localQuestions, stats } from '../core/model';
 import { aiQuestions } from '../core/sync';
 import { G } from './Glyph';
@@ -39,28 +39,9 @@ export function Worksheet() {
   }
 
   return (
-    <section class={`panel ${tab.value === 'sheet' ? 'on print-me' : ''}`} aria-label="ワークシート" data-testid="sheet" aria-hidden={tab.value !== 'sheet'}>
+    <section class={`panel ${tab.value === 'sheet' ? 'on' : ''}`} aria-label="ワークシート" data-testid="sheet" aria-hidden={tab.value !== 'sheet'}>
       <div class="ph"><h2>ワーク<span class="em">シート</span></h2></div>
       <div class="rule"><i /><span>地球儀を見て、<b>根拠</b>をもって考える</span><s /></div>
-
-      <div class="ws neon memo-card" id="memo-list" style={{ '--n': 'var(--violet)' }}>
-        <div class="ws-h"><span class="num" style={{ '--n': 'var(--violet)' }}><G.pen /></span><div><div class="tt">メモ</div><div class="q">画面の上のメモ欄に書いたこと</div></div></div>
-        {memos.value.length ? (
-          <div class="memos" data-testid="memo-list">
-            {memos.value.map((m) => (
-              <div class="memo" key={m.id} data-memo={m.id}>
-                <p>{m.text}</p>
-                <div class="acts">
-                  <button class="to1" onClick={() => { appendTo('fact', m.text); showToast('01 事実に入れました'); }}>01 事実へ</button>
-                  <button class="to2" onClick={() => { appendTo('reason', m.text); showToast('02 理由の予想に入れました'); }}>02 予想へ</button>
-                  <button class="to3" onClick={() => { appendTo('next', m.text); showToast('03 次に調べたいことに入れました'); }}>03 調べたいへ</button>
-                  <button class="del" aria-label="このメモを消す" onClick={() => deleteMemo(m.id)}>けす</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : <p class="empty">上のメモ欄に書いて保存すると、ここに入ります</p>}
-      </div>
 
       {FIELDS.map((f) => (
         <div class="ws neon" key={f.k} style={{ '--n': f.n }}>
@@ -87,7 +68,7 @@ export function Worksheet() {
           <label key={t}><input type="checkbox" checked={w.checks[i]} onChange={(e) => { const c = [...w.checks]; c[i] = (e.target as HTMLInputElement).checked; worksheet.value = { ...worksheet.value, checks: c }; }} />{t}</label>
         ))}
       </div>
-      <button class="btn block no-print" onClick={() => print()}><G.printer />印刷</button>
+      <p class="hint" style={{ textAlign: 'center' }}>シートに書いたことは、このタブレットだけに保存されます（ほかの人には見えません）</p>
     </section>
   );
 }

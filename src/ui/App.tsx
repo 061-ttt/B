@@ -1,5 +1,4 @@
-import { useEffect } from 'preact/hooks';
-import { memoCount, mode, room, sheet, tab, toast, view, type Tab } from '../state';
+import { mode, room, sheet, tab, toast, view, type Tab } from '../state';
 import { MapOverlay, MapView, globe } from './MapView';
 import { Sheets, SegThumb } from './Sheets';
 import { Zukan } from './Zukan';
@@ -14,17 +13,6 @@ const TABS: { id: Tab; label: string; icon: () => preact.JSX.Element }[] = [
 ];
 
 export function App() {
-  useEffect(() => {
-    // 上のメモ欄の件数ボタン → シートのメモ
-    const mc = document.getElementById('memo-count');
-    const go = () => {
-      tab.value = 'sheet';
-      setTimeout(() => document.getElementById('memo-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 380);
-    };
-    mc?.addEventListener('click', go);
-    return () => mc?.removeEventListener('click', go);
-  }, []);
-
   return (
     <>
       <MapView />
@@ -68,7 +56,6 @@ function TabBar() {
       {TABS.map((t) => (
         <button key={t.id} aria-current={tab.value === t.id ? 'page' : undefined} onClick={() => (tab.value = t.id)} data-tab={t.id}>
           <t.icon />{t.label}
-          {t.id === 'sheet' && memoCount.value > 0 && <span class="badge">{memoCount.value}</span>}
         </button>
       ))}
     </nav>
