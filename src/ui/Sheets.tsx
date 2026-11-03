@@ -10,9 +10,12 @@ import { findPlace, suggestPlaces, PLACE_BY_ID, type Place } from '../data/place
 const QUICK_PLACES = ['hokkaido', 'aomori', 'miyagi', 'chiba', 'shizuoka', 'nagasaki', 'kagoshima', 'norway', 'chile', 'china', 'vietnam', 'usa', 'russia'];
 import { FISH, FISH_BY_ID, type Fish } from '../data/fish';
 import { iconSvg } from './icons';
-import { photo } from './photo';
+import { figure, photo } from './photo';
 
+// 入力候補や産地の一覧のアイコン：地球儀・図鑑と同じ3Dフィギュア（なければ写真、それもなければ絵）
 const pic = (id: string | null | undefined, icon: Parameters<typeof iconSvg>[0], color: string, size: number) => {
+  const f = figure(id, true);
+  if (f) return `<img class="chip-fig" src="${f}" alt="" style="width:${size}px;height:${Math.round(size * 0.68)}px">`;
   const p = photo(id, true);
   return p ? `<img class="chip-photo" src="${p}" alt="" style="width:${size}px;height:${Math.round(size * 0.68)}px">` : iconSvg(icon, color, size);
 };
@@ -304,6 +307,7 @@ function Legend() {
         <div class="legend-row"><span class="legend-arrows" style={{ color: 'var(--warm)' }}><i /><i /><i /></span><ruby>暖流<rt>だんりゅう</rt></ruby>　あたたかい海水の流れ</div>
         <div class="legend-row"><span class="legend-arrows" style={{ color: 'var(--cold)' }}><i /><i /><i /></span><ruby>寒流<rt>かんりゅう</rt></ruby>　つめたい海水の流れ</div>
         <div class="legend-row"><span class="legend-arrows"><i style={{ color: 'var(--warm)' }} /><i style={{ color: 'var(--cold)' }} /><i style={{ color: 'var(--warm)' }} /></span><ruby>潮目<rt>しおめ</rt></ruby>　暖流と寒流がぶつかる所</div>
+        <div class="legend-row"><span class="legend-ground"><span class="ground-label"><i />三陸沖</span></span><span>主な<ruby>漁場<rt>ぎょじょう</rt></ruby><small style={{ display: 'block', fontSize: '11px', color: 'var(--sub)' }}>日本を見ているときに出ます</small></span></div>
         <div style={{ height: '6px' }} />
         <div class="legend-depth" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', fontSize: '11px', color: 'var(--sub)' }}>

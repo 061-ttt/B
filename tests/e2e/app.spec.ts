@@ -85,10 +85,22 @@ test('3. 地球儀・海流アニメーション・潮目・深さ・端がな�
   await expect(page.locator('.current-label.warm', { hasText: '黒潮' })).toBeAttached();
   await expect(page.locator('.current-label.cold', { hasText: '親潮' })).toBeAttached();
   await expect(page.locator('.current-label.meet').first()).toBeAttached();
+  // 日本の主な漁場（8つ）が、ほかの名前と重ならずに出ている
+  await expect(page.locator('.ground-label')).toHaveCount(8);
+  await expect.poll(() => page.locator('.ground-label:not(.hid)').count(), { timeout: 8000 }).toBe(8);
+  for (const n of ['三陸沖', '大和堆', '東シナ海の大陸棚']) await expect(page.locator('.ground-label', { hasText: n })).toBeVisible();
+  // 地図の上に、海の深さの色の見方（4段）
+  await expect(page.getByTestId('depth-scale')).toContainText('大陸棚');
+  await expect(page.getByTestId('depth-scale').locator('.ds-bar i')).toHaveCount(4);
   // 凡例と表示切りかえ
   await page.getByTestId('legend-btn').click();
+  await expect(page.getByTestId('legend-sheet')).toContainText('漁場');
   await expect(page.getByTestId('legend-sheet')).toContainText('大陸棚');
   await expect(page.getByTestId('legend-sheet')).toContainText('海溝');
+  await page.getByTestId('layer-depth').click();
+  await expect(page.getByTestId('depth-scale')).toHaveCount(0);
+  await page.getByTestId('layer-depth').click();
+  await expect(page.getByTestId('depth-scale')).toBeVisible();
   await page.getByTestId('layer-currents').click();
   await expect(page.getByTestId('layer-currents')).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('layer-currents').click();
@@ -250,7 +262,10 @@ test('7. 図鑑のアコーディオンと地図の連動', async ({ page }) => 
   await expect(hero).toBeVisible();
   await expect.poll(() => hero.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(300);
   await expect(item.locator('.hero figcaption')).toContainText('CC');
-  await expect(page.locator('[data-fish=salmon] .ic.photo img')).toBeAttached();
+  // 一覧のアイコンは地球儀と同じ3Dフィギュア（45種すべて）
+  await expect(page.locator('[data-fish] .ic.fig img')).toHaveCount(45);
+  const ic = page.locator('[data-fish=salmon] .ic.fig img');
+  await expect.poll(() => ic.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(100);
   await expect(item).toContainText('ノルウェー');
   await expect.poll(async () => (await item.locator('.acc-body').boundingBox())!.height).toBeGreaterThan(150);
   await head.click();

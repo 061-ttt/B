@@ -39,4 +39,7 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.png'))):
   out = out.crop(bb)
   path = os.path.join(OUT, f'{fid}.webp')
   out.save(path, 'WEBP', quality=84, method=6)
+  # 図鑑や入力候補のアイコン用の小さい版
+  small = out.copy(); small.thumbnail((180, 180), Image.LANCZOS)
+  small.save(os.path.join(OUT, f'{fid}-s.webp'), 'WEBP', quality=82, method=6)
   print(fid, out.size, os.path.getsize(path))

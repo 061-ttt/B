@@ -1,7 +1,7 @@
 // 地球儀（3D球体）。端がなく、日本から世界までひと続きで見られる。
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CURRENTS, SEA_LABELS, TRENCHES, type LonLat, type OceanCurrent } from '../data/ocean';
+import { CURRENTS, FISHING_GROUNDS, SEA_LABELS, TRENCHES, type LonLat, type OceanCurrent } from '../data/ocean';
 import { FISH_BY_ID } from '../data/fish';
 import { PLACE_BY_ID } from '../data/places';
 import { buildDepth } from './depth';
@@ -20,7 +20,7 @@ export type MapMode = 'detail' | 'world';
 export interface Layers { currents: boolean; depth: boolean; labels: boolean }
 export interface GlobeData { globe: { polys: number[][][]; japanFrom: number }; patch: { bbox: [number, number, number, number]; polys: number[][][] } }
 
-interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'pin' | 'ghost'; near?: boolean; far?: boolean }
+interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'ground' | 'pin' | 'ghost'; near?: boolean; far?: boolean }
 interface PinRec { pin: Pin; el: HTMLElement; bill: THREE.Mesh; shadow: THREE.Mesh; tex: THREE.Texture; born: number; bumpAt: number; label: Label; base: THREE.Vector3; normal: THREE.Vector3; phase: number; offset: number; row: number; first: boolean; wPx: number; hPx: number; dim: boolean; fade: number; placeTxt?: string }
 const FIG_GEO = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
 const SHADOW_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
@@ -265,11 +265,19 @@ export class Globe {
       el.textContent = s.name;
       this.addLabel({ el, pos: lonLatTo(s.at[0], s.at[1], R + 0.5), prio: 6, kind: 'sea', near: s.view === 'japan', far: s.view === 'world' });
     }
+    // 主な漁場（日本を見ているときだけ）
+    for (const g of FISHING_GROUNDS) {
+      const el = document.createElement('div');
+      el.className = 'ground-label';
+      el.title = g.note;
+      el.innerHTML = `<i></i>${g.name}`;
+      this.addLabel({ el, pos: lonLatTo(g.at[0], g.at[1], R + 0.4), prio: 5, kind: 'ground', near: true });
+    }
     for (const t of TRENCHES) {
       const at = t.path[Math.floor(t.path.length / 2)];
       const el = document.createElement('div');
       el.className = 'trench-label';
-      el.textContent = t.name;
+      el.innerHTML = `${t.name}<small>6000m〜</small>`;
       this.addLabel({ el, pos: lonLatTo(at[0], at[1], R + 0.3), prio: 2, kind: 'trench', near: true });
     }
     this.applyLayers();

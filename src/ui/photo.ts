@@ -17,6 +17,6 @@ export function photo(id: string | null | undefined, small = false): string | nu
 
 // 地球儀に立てる魚の3Dフィギュア（Canva の画像生成でつくり、背景を切り抜いたもの）
 const figs = import.meta.glob('../assets/fig/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-export function figure(id: string | null | undefined): string | null {
-  return id ? figs[`../assets/fig/${id}.webp`] ?? null : null;
+export function figure(id: string | null | undefined, small = false): string | null {
+  return id ? figs[`../assets/fig/${id}${small ? '-s' : ''}.webp`] ?? null : null;
 }

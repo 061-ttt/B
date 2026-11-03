@@ -2,21 +2,26 @@
 // 海岸からの距離で「細い大陸棚 → 大陸斜面 → 深海」を作り、幅の広い大陸棚と海溝を重ねる。
 import { SHELVES, TRENCHES, TROUGHS, type LonLat } from '../data/ocean';
 
+// 深さは4つの段（大陸棚・大陸斜面・深い海・海溝）に分けて、段ごとにはっきり色を変える。
+// 段の中では少しだけ濃くなり、段のさかい目には等深線（200m・1000m・3000m・6000m）を引く。
 export const DEPTH_STOPS: [number, string][] = [
-  [0, '#45abc4'],
-  [200, '#2683ab'],
-  [1000, '#17669a'],
-  [3000, '#0d4373'],
-  [5000, '#092c55'],
-  [7000, '#06193a'],
-  [10000, '#030b1f'],
+  [0, '#7fe7ee'],
+  [200, '#3cc0d6'],     // 大陸棚（あかるい水色）
+  [201, '#2a86c4'],
+  [3000, '#16508f'],    // 大陸斜面（青）
+  [3001, '#0f3a72'],
+  [6000, '#0a2754'],    // 深い海（こい紺）
+  [6001, '#1d1150'],
+  [10000, '#0a0526'],   // 海溝（むらさきがかった黒）
 ];
+/** 等深線（m）。200m（大陸棚のふち）だけ太く明るく */
+export const CONTOURS = [200, 1000, 3000, 6000];
 
 export const DEPTH_LEGEND = [
-  { label: '大陸棚', ruby: 'たいりくだな', range: '〜200m', color: '#3aa6cc' },
-  { label: '大陸斜面', ruby: 'たいりくしゃめん', range: '〜3000m', color: '#15588a' },
-  { label: '深い海', ruby: '', range: '〜6000m', color: '#0a2f5a' },
-  { label: '海溝', ruby: 'かいこう', range: '6000m〜', color: '#040f28' },
+  { label: '大陸棚', ruby: 'たいりくだな', range: '0〜200m', color: '#3cc0d6' },
+  { label: '大陸斜面', ruby: 'たいりくしゃめん', range: '200〜3000m', color: '#2170ae' },
+  { label: '深い海', ruby: '', range: '3000〜6000m', color: '#0d3166' },
+  { label: '海溝', ruby: 'かいこう', range: '6000m〜', color: '#170d44' },
 ];
 
 function hex(c: string): [number, number, number] {
@@ -36,6 +41,20 @@ export function depthColor(d: number): [number, number, number] {
   }
   const l = STOPS[STOPS.length - 1];
   return [l[1], l[2], l[3]];
+}
+
+/** 段のさかい目を少しなめらかにした色（全球の粗い画像用） */
+function softColor(d: number): [number, number, number] {
+  const edges: [number, number][] = [[200, 70], [3000, 500], [6000, 600]];
+  for (const [e, wd] of edges) {
+    if (Math.abs(d - e) < wd) {
+      const t = (d - (e - wd)) / (2 * wd);
+      const k = t * t * (3 - 2 * t);
+      const a = depthColor(e - wd), b = depthColor(e + wd);
+      return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+    }
+  }
+  return depthColor(d);
 }
 
 /** 2パスのチャンファー距離変換（マスク=1 の画素からの距離、単位は画素） */
@@ -188,6 +207,11 @@ export function buildDepth(o: DepthOpts) {
   const img = ctx.createImageData(w, h);
   const land = hex(o.land ?? '#2f3a35');
   const fade = o.fade ?? 0;
+  // 斜面の陰影（北西から光を当てる）。深くなっていく斜面が立体的に見える
+  const shadeK = 0.9 / Math.max(1, kmPerPx);
+  // 細かい日本付近の画像では段をくっきり、粗い全球の画像では段のさかい目を少しぼかす
+  const crisp = !o.wrap;
+  const band = (d: number) => (d <= 200 ? 0 : d <= 1000 ? 1 : d <= 3000 ? 2 : d <= 6000 ? 3 : 4);
   for (let i = 0; i < depth.length; i++) {
     const d = depth[i];
     const p = i * 4;
@@ -196,12 +220,31 @@ export function buildDepth(o: DepthOpts) {
     if (fade) a = Math.round(255 * Math.min(1, x / fade, (w - 1 - x) / fade, y / fade, (h - 1 - y) / fade));
     img.data[p + 3] = a;
     if (d < 0) { img.data[p] = land[0]; img.data[p + 1] = land[1]; img.data[p + 2] = land[2]; continue; }
-    let [r, g, b] = depthColor(d);
-    if (x > 0 && x < w - 1 && y > 0 && y < h - 1 && d <= 200) {
-      if (depth[i - 1] > 200 || depth[i + 1] > 200 || depth[i - w] > 200 || depth[i + w] > 200) { r += 22; g += 30; b += 34; }
+    let [r, g, b] = crisp ? depthColor(d) : softColor(d);
+    if (x > 0 && x < w - 1 && y > 0 && y < h - 1) {
+      const dl = depth[i - 1], dr = depth[i + 1], du = depth[i - w], dd = depth[i + w];
+      // 陰影：深さが右下へ増える斜面は明るく、左上へ増える斜面は暗く
+      if (dl >= 0 && dr >= 0 && du >= 0 && dd >= 0) {
+        const gx = (dr - dl) / 2, gy = (dd - du) / 2;
+        const sh = Math.max(-0.22, Math.min(0.22, (gx + gy) * 0.0007 * shadeK * 10));
+        r *= 1 + sh; g *= 1 + sh; b *= 1 + sh;
+      }
+      // 等深線：となりの画素と段がちがう所に線を引く（200mは太く明るい）。粗い全球の画像では引かない（ギザギザになるため）
+      const bd = crisp ? band(d) : -1;
+      let edge = -1;
+      for (const n of [dl, dr, du, dd]) if (n >= 0 && band(n) < bd) edge = Math.max(edge, band(n));
+      if (edge === 0) { r = 200; g = 250; b = 255; }
+      else if (edge > 0) { r += 34; g += 44; b += 60; }
     }
-    img.data[p] = r; img.data[p + 1] = g; img.data[p + 2] = b;
+    img.data[p] = Math.min(255, r); img.data[p + 1] = Math.min(255, g); img.data[p + 2] = Math.min(255, b);
   }
+  // 200m の線は少し太くして、大陸棚のふちをはっきり見せる
+  const shelfEdge = new Uint8Array(w * h);
+  for (let i = w; crisp && i < depth.length - w; i++) {
+    const d = depth[i];
+    if (d > 200 && d <= 3000) for (const n of [depth[i - 1], depth[i + 1], depth[i - w], depth[i + w]]) if (n >= 0 && n <= 200) { shelfEdge[i] = 1; break; }
+  }
+  for (let i = 0; i < depth.length; i++) if (shelfEdge[i]) { const p = i * 4; img.data[p] = 150; img.data[p + 1] = 228; img.data[p + 2] = 245; }
   ctx.putImageData(img, 0, 0);
   return { canvas: cv, w, h };
 }

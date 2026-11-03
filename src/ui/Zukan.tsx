@@ -5,7 +5,7 @@ import { PLACE_BY_ID } from '../data/places';
 import { entries, focusFish, tab } from '../state';
 import { iconSvg } from './icons';
 import art from '../assets/art/zukan.webp';
-import { CREDITS, photo } from './photo';
+import { CREDITS, figure, photo } from './photo';
 import { G } from './Glyph';
 
 const openId = signal<string | null>(null);
@@ -69,8 +69,8 @@ function Item({ f, n }: { f: Fish; n: number }) {
   return (
     <article id={`fish-${f.id}`} class={`acc neon ${cls} ${open ? 'open' : ''}`} data-fish={f.id}>
       <button class="acc-head" aria-expanded={open} aria-controls={`fb-${f.id}`} onClick={() => (openId.value = open ? null : f.id)}>
-        {photo(f.id, true)
-          ? <span class="ic photo"><img src={photo(f.id, true)!} alt="" loading="lazy" decoding="async" /></span>
+        {figure(f.id, true)
+          ? <span class="ic fig"><img src={figure(f.id, true)!} alt="" loading="lazy" decoding="async" /></span>
           : <span class="ic" dangerouslySetInnerHTML={{ __html: iconSvg(f.icon, f.color, 50) }} />}
         <span class="t">
           <span class="nm">{f.name}</span><span class="kj">{f.kanji}</span>
