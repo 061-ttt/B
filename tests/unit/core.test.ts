@@ -81,6 +81,37 @@ describe('教材データの整合性', () => {
   });
 });
 
+describe('暖流・寒流の校正', () => {
+  const cur = (id: string) => FISH.find((f) => f.id === id)!.current;
+  it('教科書で暖流の魚・寒流の魚とされる魚', () => {
+    for (const id of ['bonito', 'tuna', 'sardine', 'mackerel', 'horse-mackerel']) expect(cur(id), id).toBe('warm');
+    for (const id of ['salmon', 'cod', 'saury', 'herring']) expect(cur(id), id).toBe('cold');
+  });
+  it('どちらの海にもいるもの・川の魚は、どちらかに決めつけない', () => {
+    for (const id of ['flatfish', 'wakame', 'squid', 'octopus', 'anglerfish', 'hijiki']) expect(cur(id), id).toBe('both');
+    for (const id of ['eel', 'ayu']) expect(cur(id), id).toBe('inland');
+  });
+  it('別の魚が別名に混ざっていない', () => {
+    expect(findFish('赤魚の粕漬け')?.id).toBe('akauo');
+    expect(findFish('かんぱち')?.id).toBe('kanpachi');
+    expect(findFish('甘えび')?.id).toBe('amaebi');
+    expect(findFish('はまぐり')?.id).toBe('hamaguri');
+    expect(findFish('バナメイえび')?.id).toBe('shrimp');
+    expect(findFish('ぎんだら西京漬')?.id).toBe('sablefish');
+    expect(findFish('真だら')?.id).toBe('cod');
+    expect(findFish('めかじき')?.id).toBe('swordfish');
+  });
+  it('産地の名前を魚と取り違えない', () => {
+    expect(parseTag('福島県産 さば').fish?.id).toBe('mackerel');
+    expect(parseTag('ふくしま さば').fish?.id).toBe('mackerel');
+  });
+  it('図鑑は45種で、全種に地球儀用の3Dフィギュアがある', () => {
+    expect(FISH).toHaveLength(45);
+    const figs = Object.keys(import.meta.glob('../../src/assets/fig/*.webp'));
+    for (const f of FISH) expect(figs.some((p) => p.endsWith(`/${f.id}.webp`)), f.id).toBe(true);
+  });
+});
+
 describe('魚の写真', () => {
   it('図鑑の全種に写真があり、教材に使えるライセンスで出典がある', () => {
     const c = credits as Record<string, { file: string; license: string; page: string }>;

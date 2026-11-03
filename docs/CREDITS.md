@@ -34,3 +34,18 @@
 | しらす | [Chirimenjako_(zoom).JPG](https://commons.wikimedia.org/wiki/File:Chirimenjako_%28zoom%29.JPG) | Alpsdake | CC BY-SA 4.0 |
 | にしん・数の子 | [Clupea_pallasii_by_OpenCage.jpg](https://commons.wikimedia.org/wiki/File:Clupea_pallasii_by_OpenCage.jpg) | （ファイルのページを参照） | CC BY-SA 2.5 |
 | ひらまさ | [Yellowtail_amberjack.jpg](https://commons.wikimedia.org/wiki/File:Yellowtail_amberjack.jpg) | brian gratwicke | CC BY 2.0 |
+| ふぐ | [Fugu_in_Tank.jpg](https://commons.wikimedia.org/wiki/File:Fugu_in_Tank.jpg) | （ファイルのページを参照） | CC BY-SA 3.0 |
+| めかじき | [Espadon_(Xiphias_gladius)_(Ifremer_00764-87622).jpg](https://commons.wikimedia.org/wiki/File:Espadon_%28Xiphias_gladius%29_%28Ifremer_00764-87622%29.jpg) | Hugues Evano (IFREMER, Délégation océan Indien (DOI), Département Ressources Bio | CC BY 4.0 |
+| さわら | [Niigata_Prefecture,_20090526.jpg](https://commons.wikimedia.org/wiki/File:Niigata_Prefecture%2C_20090526.jpg) | yamakk | CC BY 2.0 |
+| きんめだい | [Beryx_long_(Beryx_splendens)_(Ifremer_00763-87519).jpg](https://commons.wikimedia.org/wiki/File:Beryx_long_%28Beryx_splendens%29_%28Ifremer_00763-87519%29.jpg) | Hugues Evano (IFREMER, Délégation océan Indien (DOI), Département Ressources Bio | CC BY 4.0 |
+| かんぱち | [Seriola_dumerili_Uotto.jpg](https://commons.wikimedia.org/wiki/File:Seriola_dumerili_Uotto.jpg) | Totti | CC BY-SA 4.0 |
+| あなご | [Conger_myriaster.jpg](https://commons.wikimedia.org/wiki/File:Conger_myriaster.jpg) | Daiju Azuma | CC BY-SA 2.5 |
+| たちうお | [Trichiurus_lepturus_FishMarketInTokyo.JPG](https://commons.wikimedia.org/wiki/File:Trichiurus_lepturus_FishMarketInTokyo.JPG) | Takahashi | Public domain |
+| ぎんだら | [4sablefish_500.jpg](https://commons.wikimedia.org/wiki/File:4sablefish_500.jpg) | （ファイルのページを参照） | Public domain |
+| あんこう | [Monkfish_7,500Yen_(4375370516).jpg](https://commons.wikimedia.org/wiki/File:Monkfish_7%2C500Yen_%284375370516%29.jpg) | wakanmuri from Japan | CC BY 2.0 |
+| はまぐり | [Meretrix_lusoria_01.jpg](https://commons.wikimedia.org/wiki/File:Meretrix_lusoria_01.jpg) | H. Zell | CC BY-SA 3.0 |
+| ひじき | [Hijiki1.JPG](https://commons.wikimedia.org/wiki/File:Hijiki1.JPG) | Maša Sinreih in Valentina Vivod | CC BY-SA 3.0 |
+| もずく | [Japanese_Mozuku.jpg](https://commons.wikimedia.org/wiki/File:Japanese_Mozuku.jpg) | DryPot | CC BY-SA 3.0 |
+| あまえび | [Pandalus_eous_Kamo.jpg](https://commons.wikimedia.org/wiki/File:Pandalus_eous_Kamo.jpg) | Totti | CC BY-SA 4.0 |
+| 赤魚 | [Pacific_Ocean_Perch_(Sebastes_alutus)_are_occasionally_caught_during_trawls.jpg](https://commons.wikimedia.org/wiki/File:Pacific_Ocean_Perch_%28Sebastes_alutus%29_are_occasionally_caught_during_trawls.jpg) | Kathy Hough for NOAA | Public domain |
+| あゆ | [Sweetfish,_Plecoglossus_altivelis.jpg](https://commons.wikimedia.org/wiki/File:Sweetfish%2C_Plecoglossus_altivelis.jpg) | OAS at Japanese Wikipedia | CC BY-SA 3.0 |

@@ -90,13 +90,14 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .hid { opacity: 0 !important; }
 
 /* 魚のフィギュアの名札とタップ範囲（フィギュア自体は地球儀の上にWebGLで描く） */
-.pin { pointer-events: auto; border: 0; background: none; padding: 0; translate: -50% -24px; box-sizing: content-box; padding-top: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: opacity .35s; -webkit-tap-highlight-color: transparent; }
-.pin-tag { position: absolute; top: 0; left: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: 3px; padding: 1px 2px 1px 7px; border-radius: 11px; white-space: nowrap;
-  background: rgba(6, 10, 20, .82); border: 1.5px solid var(--c); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent), 0 4px 10px rgba(0, 0, 0, .5); animation: tagIn .6s var(--spring) both; }
-.pin-name { font-size: 10.5px; font-weight: 800; color: #fff; }
-.pin-count { min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--c); color: #04060c; font: 800 11px/1 var(--num); display: grid; place-items: center; box-shadow: 0 0 8px var(--c); }
-.pin-place { position: absolute; bottom: -16px; left: 50%; translate: -50% 0; font-size: 9px; font-weight: 800; color: var(--sub); white-space: nowrap; text-shadow: 0 1px 3px #000; display: none; }
+.pin { pointer-events: auto; border: 0; background: none; padding: 0; translate: -50% -19px; box-sizing: content-box; padding-top: 19px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: opacity .35s; -webkit-tap-highlight-color: transparent; }
+.pin-tag { position: absolute; top: 0; left: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px; padding: 1px 1px 1px 5px; border-radius: 9px; white-space: nowrap;
+  background: rgba(6, 10, 20, .84); border: 1px solid var(--c); box-shadow: 0 0 8px color-mix(in srgb, var(--c) 40%, transparent), 0 3px 8px rgba(0, 0, 0, .5); animation: tagIn .6s var(--spring) both; }
+.pin-name { font-size: 9px; font-weight: 800; color: #fff; letter-spacing: -.02em; }
+.pin-count { min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px; background: var(--c); color: #04060c; font: 800 9px/1 var(--num); display: grid; place-items: center; box-shadow: 0 0 8px var(--c); }
+.pin-place { position: absolute; bottom: -14px; left: 50%; translate: -50% 0; font-size: 9px; font-weight: 800; color: var(--sub); white-space: nowrap; text-shadow: 0 1px 3px #000; display: none; }
 .pin.first .pin-place { display: block; }
+.pin.mini .pin-tag { display: none; }
 .pin.dim { opacity: .2; pointer-events: none; }
 .pin:active .pin-tag { transform: scale(.94); }
 @keyframes tagIn { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 60% { opacity: 1; } }

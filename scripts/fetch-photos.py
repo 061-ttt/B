@@ -26,6 +26,11 @@ PAGES = {
   'ikura': 'Ikura', 'pollock-roe': 'Mentaiko', 'urchin': 'Strongylocentrotus intermedius',
   'wakame': 'Undaria pinnatifida', 'nori': 'Nori', 'kombu': 'Saccharina japonica', 'shirasu': 'Shirasu',
   'herring': 'Clupea pallasii',
+  'fugu': 'Takifugu rubripes', 'swordfish': 'Xiphias gladius', 'sawara': 'Scomberomorus niphonius',
+  'kinmedai': 'Beryx splendens', 'kanpachi': 'Seriola dumerili', 'anago': 'Conger myriaster',
+  'tachiuo': 'Trichiurus lepturus', 'sablefish': 'Anoplopoma fimbria', 'anglerfish': 'Lophius litulon',
+  'hamaguri': 'Meretrix lusoria', 'hijiki': 'Sargassum fusiforme', 'mozuku': 'Cladosiphon okamuranus',
+  'amaebi': 'Pandalus eous', 'akauo': 'Sebastes alutus', 'ayu': 'Plecoglossus altivelis',
 }
 
 last = [0.0]

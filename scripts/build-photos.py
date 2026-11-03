@@ -15,7 +15,9 @@ def cover(im, w, h):
   im = ImageOps.exif_transpose(im).convert('RGB')
   return ImageOps.fit(im, (w, h), Image.LANCZOS, centering=(0.5, 0.5))
 
-credits = {}
+# すでに同梱している写真の出典は残し、今回の分だけ足す・入れかえる
+cred_path = os.path.join(ROOT, 'src', 'data', 'photo-credits.json')
+credits = json.load(open(cred_path, encoding='utf-8')) if os.path.exists(cred_path) else {}
 for fid, cs in cands.items():
   if not cs: continue
   c = cs[int(PICK.get(fid, 0))]

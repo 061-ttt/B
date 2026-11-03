@@ -493,3 +493,44 @@ test('15. はじめに：3DCGと番号カードの案内が出て、はじめる
   await page.keyboard.press('Escape');
   await expect(intro).toHaveCount(0);
 });
+
+test('16. 1つの県に15種類あっても重ならない。地球儀を回しても、向こう側へ行くまでフィギュアが消えない', async ({ page }) => {
+  const room = await (await fetch('http://127.0.0.1:8787/api/rooms', { method: 'POST', body: '{}' })).json();
+  await page.goto(`/?room=${room.code}`);
+  await ready(page);
+  await expect(page.locator('.status-dot.live')).toBeVisible();
+  const fish = ['fugu', 'anglerfish', 'seabream', 'mackerel', 'horse-mackerel', 'squid', 'yellowtail', 'tachiuo', 'anago', 'sawara', 'shrimp', 'oyster', 'wakame', 'hijiki', 'hamaguri'];
+  const w = await new Promise<WebSocket>((res) => { const s = new WebSocket(`ws://127.0.0.1:8787/api/rooms/${room.code}/ws`); s.onopen = () => res(s); });
+  fish.forEach((f, i) => {
+    for (let k = 0; k < (f === 'fugu' ? 4 : 1); k++) w.send(JSON.stringify({ type: 'add', entry: { id: `Y${i}k${k}${Date.now().toString(36)}`, fishId: f, fishName: 'x', placeId: 'yamaguchi', method: 'unknown', group: 1, at: Date.now(), device: 'dsimY' } }));
+  });
+  await expect(page.getByTestId('total')).toHaveText('18', { timeout: 10_000 });
+  await expect(page.locator('.pin[data-place=yamaguchi]')).toHaveCount(15);
+  await page.getByTestId('view-japan').click();
+  await page.waitForTimeout(3000);
+  const info = () => page.evaluate(() => (window as W).__sm!.scene.info());
+  // 日本全体を見ているときは、多い順に4種だけ名札を出し、残りは「ほか11種」
+  expect(Number((await info()).tags)).toBe(4);
+  await expect(page.locator('.pin[data-key="yamaguchi|fugu"] .pin-place')).toHaveText('山口・ほか11種');
+  // フィギュアは小さめ（1件の魚は画面で幅60px以下）
+  const figW = (await info()).figW as Record<string, number>;
+  expect(figW['yamaguchi|anago']).toBeLessThan(60);
+  expect(figW['yamaguchi|fugu']).toBeGreaterThan(figW['yamaguchi|anago']);
+  // 出ている名札どうしが重ならない
+  const rs = await page.locator('.pin:not(.mini) .pin-tag').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }));
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+    const [a, b] = [rs[i], rs[j]];
+    expect(a[0] < b[2] - 2 && b[0] < a[2] - 2 && a[1] < b[3] - 2 && b[1] < a[3] - 2, `${i} と ${j} の名札が重なっている`).toBe(false);
+  }
+  // 山口に寄ると、15種すべての名札が出る
+  await page.evaluate(() => (window as W).__sm!.scene.flyTo(131.5, 34.2, 135, 10));
+  await expect.poll(async () => Number((await info()).tags), { timeout: 8000 }).toBe(15);
+  // 地球儀を回して山口が地球のふちの近くに来ても、フィギュアは全部出ている
+  await page.evaluate(() => (window as W).__sm!.scene.flyTo(131.5, -36, 330, 10));
+  await page.waitForTimeout(1500);
+  expect(Number((await info()).figVis)).toBe(15);
+  // 地球の向こう側へ回ると見えなくなる
+  await page.evaluate(() => (window as W).__sm!.scene.flyTo(-48, -34, 330, 10));
+  await expect.poll(async () => Number((await info()).figVis), { timeout: 8000 }).toBe(0);
+  w.close();
+});

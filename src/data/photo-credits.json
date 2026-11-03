@@ -178,5 +178,95 @@
   "license": "CC BY 2.0",
   "author": "brian gratwicke",
   "page": "https://commons.wikimedia.org/wiki/File:Yellowtail_amberjack.jpg"
+ },
+ "fugu": {
+  "file": "Fugu_in_Tank.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:Fugu_in_Tank.jpg"
+ },
+ "swordfish": {
+  "file": "Espadon_(Xiphias_gladius)_(Ifremer_00764-87622).jpg",
+  "license": "CC BY 4.0",
+  "author": "Hugues Evano (IFREMER, Délégation océan Indien (DOI), Département Ressources Bio",
+  "page": "https://commons.wikimedia.org/wiki/File:Espadon_%28Xiphias_gladius%29_%28Ifremer_00764-87622%29.jpg"
+ },
+ "sawara": {
+  "file": "Niigata_Prefecture,_20090526.jpg",
+  "license": "CC BY 2.0",
+  "author": "yamakk",
+  "page": "https://commons.wikimedia.org/wiki/File:Niigata_Prefecture%2C_20090526.jpg"
+ },
+ "kinmedai": {
+  "file": "Beryx_long_(Beryx_splendens)_(Ifremer_00763-87519).jpg",
+  "license": "CC BY 4.0",
+  "author": "Hugues Evano (IFREMER, Délégation océan Indien (DOI), Département Ressources Bio",
+  "page": "https://commons.wikimedia.org/wiki/File:Beryx_long_%28Beryx_splendens%29_%28Ifremer_00763-87519%29.jpg"
+ },
+ "kanpachi": {
+  "file": "Seriola_dumerili_Uotto.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Totti",
+  "page": "https://commons.wikimedia.org/wiki/File:Seriola_dumerili_Uotto.jpg"
+ },
+ "anago": {
+  "file": "Conger_myriaster.jpg",
+  "license": "CC BY-SA 2.5",
+  "author": "Daiju Azuma",
+  "page": "https://commons.wikimedia.org/wiki/File:Conger_myriaster.jpg"
+ },
+ "tachiuo": {
+  "file": "Trichiurus_lepturus_FishMarketInTokyo.JPG",
+  "license": "Public domain",
+  "author": "Takahashi",
+  "page": "https://commons.wikimedia.org/wiki/File:Trichiurus_lepturus_FishMarketInTokyo.JPG"
+ },
+ "sablefish": {
+  "file": "4sablefish_500.jpg",
+  "license": "Public domain",
+  "author": "",
+  "page": "https://commons.wikimedia.org/wiki/File:4sablefish_500.jpg"
+ },
+ "anglerfish": {
+  "file": "Monkfish_7,500Yen_(4375370516).jpg",
+  "license": "CC BY 2.0",
+  "author": "wakanmuri from Japan",
+  "page": "https://commons.wikimedia.org/wiki/File:Monkfish_7%2C500Yen_%284375370516%29.jpg"
+ },
+ "hamaguri": {
+  "file": "Meretrix_lusoria_01.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "H. Zell",
+  "page": "https://commons.wikimedia.org/wiki/File:Meretrix_lusoria_01.jpg"
+ },
+ "hijiki": {
+  "file": "Hijiki1.JPG",
+  "license": "CC BY-SA 3.0",
+  "author": "Maša Sinreih in Valentina Vivod",
+  "page": "https://commons.wikimedia.org/wiki/File:Hijiki1.JPG"
+ },
+ "mozuku": {
+  "file": "Japanese_Mozuku.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "DryPot",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Mozuku.jpg"
+ },
+ "amaebi": {
+  "file": "Pandalus_eous_Kamo.jpg",
+  "license": "CC BY-SA 4.0",
+  "author": "Totti",
+  "page": "https://commons.wikimedia.org/wiki/File:Pandalus_eous_Kamo.jpg"
+ },
+ "akauo": {
+  "file": "Pacific_Ocean_Perch_(Sebastes_alutus)_are_occasionally_caught_during_trawls.jpg",
+  "license": "Public domain",
+  "author": "Kathy Hough for NOAA",
+  "page": "https://commons.wikimedia.org/wiki/File:Pacific_Ocean_Perch_%28Sebastes_alutus%29_are_occasionally_caught_during_trawls.jpg"
+ },
+ "ayu": {
+  "file": "Sweetfish,_Plecoglossus_altivelis.jpg",
+  "license": "CC BY-SA 3.0",
+  "author": "OAS at Japanese Wikipedia",
+  "page": "https://commons.wikimedia.org/wiki/File:Sweetfish%2C_Plecoglossus_altivelis.jpg"
  }
 }
