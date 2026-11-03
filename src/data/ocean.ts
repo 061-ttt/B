@@ -130,10 +130,6 @@ export const SEA_LABELS: { name: string; at: LonLat; view: 'japan' | 'world'; si
 export const FISHING_GROUNDS: { name: string; at: LonLat; note: string }[] = [
   { name: '道東沖', at: [146.0, 42.4], note: '親潮が運ぶ栄養で、さんま・たら・さけなど' },
   { name: '三陸沖', at: [143.5, 40.9], note: '潮目ができ、さんま・かつお・いわしなど多くの魚が集まる' },
-  { name: '常磐沖', at: [141.9, 36.6], note: '黒潮と親潮がまじわる海' },
   { name: '大和堆', at: [135.2, 39.75], note: '日本海の浅い所。いかの好漁場' },
-  { name: '山陰沖', at: [131.6, 35.3], note: 'あじ・さば・かになど' },
-  { name: '五島・対馬沖', at: [128.3, 33.0], note: '対馬海流が流れ、あじ・さば・いか' },
   { name: '東シナ海の大陸棚', at: [126.6, 31.0], note: '広い大陸棚。底びき網・まき網' },
-  { name: '土佐沖', at: [132.8, 31.9], note: '黒潮に乗ったかつおを一本釣り' },
 ];
