@@ -128,7 +128,7 @@ E2Eで確認していること：
 どちらか一つ。
 
 **A. Cloudflare のダッシュボードから（おすすめ・トークン不要）**
-Workers & Pages →「作成」→「Gitリポジトリをインポート」→ このリポジトリを選ぶ。ビルドコマンド `npm run build`、デプロイコマンド `npx wrangler deploy`。以後、main へのpushで自動公開される。
+Workers & Pages →「作成」→「Gitリポジトリをインポート」→ このリポジトリを選ぶ。ビルドコマンド `npm run build`、デプロイコマンド `npx wrangler deploy`。以後、main へのpushで自動公開される。（いまはこの方法で、Worker 名 `b` として公開している。`wrangler.jsonc` の name もそれに合わせてある）
 
 **B. GitHub Actions から**
 リポジトリの Settings → Secrets に `CLOUDFLARE_API_TOKEN`（Workers・Durable Objects・Workers AI の編集権限）と `CLOUDFLARE_ACCOUNT_ID` を登録すると、テスト合格後に自動でデプロイされる。
