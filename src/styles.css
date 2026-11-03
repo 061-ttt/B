@@ -105,6 +105,9 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .pin.first .pin-place { display: block; }
 .pin.mini .pin-tag { display: none; }
 .pin.dim { opacity: .2; pointer-events: none; }
+/* 名札のふちもネオンの色（暖流＝赤・寒流＝青） */
+.pin[data-neon=warm] .pin-tag { border-color: var(--warm); box-shadow: 0 0 10px rgba(255, 61, 85, .7), 0 3px 8px rgba(0, 0, 0, .5); }
+.pin[data-neon=cold] .pin-tag { border-color: var(--cold); box-shadow: 0 0 10px rgba(47, 164, 255, .7), 0 3px 8px rgba(0, 0, 0, .5); }
 .pin:active .pin-tag { transform: scale(.94); }
 @keyframes tagIn { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 60% { opacity: 1; } }
 .ghost { translate: -50% -50%; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: opacity .3s; }

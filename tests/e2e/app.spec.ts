@@ -162,6 +162,10 @@ test('4. 入力するとピンが浮き上がり、同じ魚は大きく、別�
   }
   // 3種類とも立体の魚が立っている
   await expect.poll(() => page.evaluate(() => Number((window as W).__sm!.scene.info().figs))).toBe(3);
+  // 寒流の魚（さけ・さんま・ほたて）は青いネオンで光る
+  const glows = () => page.evaluate(() => (window as W).__sm!.scene.info().glows as Record<string, string>);
+  await expect.poll(glows).toEqual({ 'hokkaido|salmon': 'cold', 'hokkaido|saury': 'cold', 'hokkaido|scallop': 'cold' });
+  await expect(salmon).toHaveAttribute('data-neon', 'cold');
   await expect(page.getByTestId('total')).toHaveText('4');
   // ピンをタップすると、その産地の魚が一覧で出る
   await page.locator('.pin[data-key="hokkaido|saury"]').click();
@@ -481,6 +485,9 @@ test('14. ひらまさ：図鑑で写真と情報が見られ、ぶりとは別�
   await expect(page.locator('.pin[data-key="kagoshima|yellowtail"]')).toBeVisible();
   await expect(page.locator('.pin[data-key="kagoshima|hiramasa"]')).toBeVisible();
   await expect(page.locator('.pin[data-key="kagoshima|hiramasa"] .pin-name')).toHaveText('ひらまさ');
+  // 暖流の魚は赤いネオンで光る
+  await expect.poll(() => page.evaluate(() => ((window as W).__sm!.scene.info().glows as Record<string, string>)['kagoshima|hiramasa'])).toBe('warm');
+  await expect(page.locator('.pin[data-key="kagoshima|yellowtail"]')).toHaveAttribute('data-neon', 'warm');
 });
 
 test('15. はじめに：3DCGと番号カードの案内が出て、はじめるで地球儀へ。使い方ボタンでまた出る', async ({ page }) => {

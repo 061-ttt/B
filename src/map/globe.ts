@@ -21,7 +21,7 @@ export interface Layers { currents: boolean; depth: boolean; labels: boolean }
 export interface GlobeData { globe: { polys: number[][][]; japanFrom: number }; patch: { bbox: [number, number, number, number]; polys: number[][][] } }
 
 interface Label { el: HTMLElement; pos: THREE.Vector3; prio: number; kind: 'sea' | 'current' | 'trench' | 'ground' | 'pin' | 'ghost'; near?: boolean; far?: boolean }
-interface PinRec { pin: Pin; el: HTMLElement; bill: THREE.Mesh; shadow: THREE.Mesh; tex: THREE.Texture; born: number; bumpAt: number; label: Label; base: THREE.Vector3; normal: THREE.Vector3; phase: number; offset: number; row: number; first: boolean; wPx: number; hPx: number; dim: boolean; fade: number; placeTxt?: string }
+interface PinRec { pin: Pin; el: HTMLElement; bill: THREE.Mesh; shadow: THREE.Mesh; tex: THREE.Texture; born: number; bumpAt: number; label: Label; base: THREE.Vector3; normal: THREE.Vector3; phase: number; offset: number; row: number; first: boolean; wPx: number; hPx: number; dim: boolean; fade: number; placeTxt?: string; neon: 'warm' | 'cold' | null; glow: THREE.Mesh | null; glowPad: [number, number] }
 const FIG_GEO = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
 const SHADOW_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 interface Flow { curve: THREE.CatmullRomCurve3; len: number; n: number; spacing: number; kind: OceanCurrent['kind']; warmIdx: number[]; coldIdx: number[] }
@@ -391,6 +391,63 @@ export class Globe {
     this.texCache.set(key, t);
     return t;
   }
+  // ── 暖流の魚は赤、寒流の魚は青のネオンでフィギュアのまわりを光らせる ──
+  // フィギュアの形（透明な部分をのぞいた輪郭）から、ふちの線とぼんやりした光を画像にして、フィギュアのうしろに重ねる。
+  // ctx.filter は古いiPadのSafariで使えないため、影（shadowBlur）で光をつくる
+  private glowCache = new Map<string, { tex: THREE.Texture; pad: [number, number] }>();
+  private glowTexture(key: string, img: CanvasImageSource & { width: number; height: number }, color: string, core: string) {
+    const hit = this.glowCache.get(key);
+    if (hit) return hit;
+    const iw = img.width, ih = img.height;
+    const s = Math.min(1, 320 / Math.max(iw, ih));         // 光の画像は小さめでよい
+    const w = Math.max(8, Math.round(iw * s)), h = Math.max(8, Math.round(ih * s));
+    const pad = Math.round(Math.max(w, h) * 0.16) + 8;
+    // フィギュアの形を色でぬったもの
+    const tint = (fill: string) => {
+      const t = document.createElement('canvas');
+      t.width = w; t.height = h;
+      const tc = t.getContext('2d')!;
+      tc.drawImage(img, 0, 0, w, h);
+      tc.globalCompositeOperation = 'source-in';
+      tc.fillStyle = fill;
+      tc.fillRect(0, 0, w, h);
+      return t;
+    };
+    const sil = tint(color), hot = tint(core);
+    const cv = document.createElement('canvas');
+    cv.width = w + pad * 2; cv.height = h + pad * 2;
+    const c = cv.getContext('2d')!;
+    // ぼんやりした光：形を画面の外に置いて、影だけを内側に落とす
+    const far = cv.width + 50;
+    c.shadowColor = color;
+    c.shadowOffsetX = far;
+    for (const blur of [pad * 0.9, pad * 0.9, pad * 0.55, pad * 0.55, pad * 0.3, pad * 0.15]) { c.shadowBlur = blur; c.drawImage(sil, pad - far, pad); }
+    c.shadowColor = 'transparent';
+    // くっきりしたふちの線（形を少しずつずらして重ねる）。外側は色、内側は白っぽく光る「しん」
+    const e = Math.max(4, Math.max(w, h) * 0.045);
+    for (let k = 0; k < 16; k++) { const a = (k / 16) * Math.PI * 2; c.drawImage(sil, pad + Math.cos(a) * e, pad + Math.sin(a) * e); }
+    for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; c.drawImage(hot, pad + Math.cos(a) * e * 0.55, pad + Math.sin(a) * e * 0.55); }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const out = { tex, pad: [pad / w, pad / h] as [number, number] };
+    this.glowCache.set(key, out);
+    return out;
+  }
+  /** フィギュアの画像が読みこまれたら、ネオンの光を用意する */
+  private ensureGlow(r: PinRec) {
+    if (r.glow || !r.neon) return;
+    const img = r.tex.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+    if (!img || !img.width) return;
+    const [color, core] = r.neon === 'warm' ? ['#ff2443', '#ff8a9a'] : ['#1a8cff', '#7fd0ff'];
+    const g = this.glowTexture(`${r.pin.fish[0].id ?? r.pin.fishKey}|${r.neon}`, img, color, core);
+    const m = new THREE.Mesh(FIG_GEO, new THREE.MeshBasicMaterial({ map: g.tex, transparent: true, depthTest: false, depthWrite: false }));
+    m.matrixAutoUpdate = false;
+    m.renderOrder = 4.5;
+    r.glow = m;
+    r.glowPad = g.pad;
+    this.pinGroup.add(m);
+  }
+
   private getShadowTex() {
     if (this.shadowTex) return this.shadowTex;
     const cv = document.createElement('canvas');
@@ -435,7 +492,9 @@ export class Globe {
         shadow.renderOrder = 4;
         this.pinGroup.add(shadow, bill);
         const label: Label = { el, pos: base.clone(), prio: 100 + pin.count, kind: 'pin' };
-        rec = { pin, el, bill, shadow, tex, born: now, bumpAt: 0, label, base, normal, phase: Math.random() * 6.28, offset: 0, row: 0, first: false, wPx: 0, hPx: 0, dim: false, fade: 1 };
+        const cur = f?.current;
+        rec = { pin, el, bill, shadow, tex, born: now, bumpAt: 0, label, base, normal, phase: Math.random() * 6.28, offset: 0, row: 0, first: false, wPx: 0, hPx: 0, dim: false, fade: 1, neon: cur === 'warm' || cur === 'cold' ? cur : null, glow: null, glowPad: [0, 0] };
+        el.dataset.neon = rec.neon ?? '';
         this.pins.set(pin.key, rec);
       } else if (rec.pin.count !== pin.count) {
         rec.bumpAt = now;
@@ -455,7 +514,11 @@ export class Globe {
       rec.dim = dim;
       (rec.bill.material as THREE.MeshBasicMaterial).alphaTest = dim ? 0 : 0.08;
     }
-    for (const [k, r] of this.pins) if (!seen.has(k)) { r.el.remove(); this.pinGroup.remove(r.bill, r.shadow); (r.bill.material as THREE.Material).dispose(); (r.shadow.material as THREE.Material).dispose(); this.pins.delete(k); }
+    for (const [k, r] of this.pins) if (!seen.has(k)) {
+      r.el.remove(); this.pinGroup.remove(r.bill, r.shadow); (r.bill.material as THREE.Material).dispose(); (r.shadow.material as THREE.Material).dispose();
+      if (r.glow) { this.pinGroup.remove(r.glow); (r.glow.material as THREE.Material).dispose(); }
+      this.pins.delete(k);
+    }
     // 同じ産地の魚は横に並べる（多い魚ほど真ん中）。並びきらないときは上の段へ
     const groups = new Map<string, PinRec[]>();
     for (const r of this.pins.values()) {
@@ -635,6 +698,20 @@ export class Globe {
           r.bill.matrixWorldNeedsUpdate = true;
           (r.bill.material as THREE.MeshBasicMaterial).opacity = (r.dim ? 0.14 : 1) * r.fade;
           r.bill.visible = r.fade > 0.01;
+          // ネオンの光：フィギュアと同じ向き・同じゆれで、ひとまわり大きく、うしろに重ねる
+          this.ensureGlow(r);
+          if (r.glow) {
+            const [px0, py0] = r.glowPad;
+            const gm = r.glow.matrix;
+            gm.copy(m);
+            gm.scale(sc.set(1 + px0 * 2, 1 + py0 * 2, 1));
+            // 下の余白の分だけ下げる（FIG_GEO は下の辺が基準）
+            gm.multiply(roll.makeTranslation(0, -py0 / (1 + py0 * 2), 0));
+            r.glow.matrixWorldNeedsUpdate = true;
+            const pulse = this.reduced ? 1 : 0.88 + 0.12 * Math.sin(this.elapsed * 2.6 + r.phase);
+            (r.glow.material as THREE.MeshBasicMaterial).opacity = (r.dim ? 0.1 : 1) * pulse * r.fade * ease;
+            r.glow.visible = r.bill.visible;
+          }
           // 足もとの影（地面に落とす。浮くほどうすく小さく。ずらしたときは産地に小さく残す）
           const sx = moved ? cx * 0.25 : cx;
           foot.copy(r.base).addScaledVector(tan, sx).setLength(r.base.length() + 0.06);
@@ -811,6 +888,7 @@ export class Globe {
       figs: [...this.pins.values()].filter((r) => ((r.tex.image as { width?: number } | undefined)?.width ?? 0) > 0).length,
       figW: Object.fromEntries([...this.pins.values()].map((r) => [r.pin.key, Math.round(r.wPx)])),
       figVis: [...this.pins.values()].filter((r) => r.bill.visible && r.fade > 0.05).length,
+      glows: Object.fromEntries([...this.pins.values()].filter((r) => r.glow).map((r) => [r.pin.key, r.neon])),
       tags: [...this.pins.values()].filter((r) => !r.el.classList.contains('mini')).length,
     };
   }
