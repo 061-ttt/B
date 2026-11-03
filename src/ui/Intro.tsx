@@ -21,7 +21,7 @@ export function closeIntro() {
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && intro.value) closeIntro(); });
 
 const STEPS = [
-  { no: '01', n: 'var(--blue)', t: '値札を見る', s: 'どこの産地？', img: step1 },
+  { no: '01', n: 'var(--blue)', t: '鮮魚シールを見る', s: 'どこの産地？', img: step1 },
   { no: '02', n: 'var(--violet)', t: '地球儀にのせる', s: 'みんなのデータが集まる', img: step2 },
   { no: '03', n: 'var(--red)', t: 'くらべる', s: '暖流・寒流・海の深さ', img: step3 },
   { no: '04', n: 'var(--green)', t: 'なぜ？を考える', s: '次に調べたいことへ', img: step4 },
