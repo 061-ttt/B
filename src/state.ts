@@ -1,4 +1,4 @@
-import { signal, effect, batch } from '@preact/signals';
+import { signal, effect, batch, computed } from '@preact/signals';
 import type { Entry, FilterId, ViewId } from './core/model';
 import { uid } from './core/model';
 
@@ -36,7 +36,15 @@ export function showToast(text: string, action?: { label: string; run: () => voi
 // ── クラス（ルーム）とデータ ──
 const params = new URLSearchParams(location.search);
 export const room = signal<string | null>((params.get('room') || ls.get<string | null>('sm.room', null))?.toUpperCase() ?? null);
-export const teacherKey = signal<string | null>(ls.get<string | null>('sm.teacherKey', null));
+// 先生のかぎはクラスごとに持つ（ほかのクラスに参加したときに取り違えない）。以前の版の1つだけのかぎは引きつぐ
+export const teacherKeys = signal<Record<string, string>>((() => {
+  const m = ls.get<Record<string, string>>('sm.teacherKeys', {});
+  const old = ls.get<string | null>('sm.teacherKey', null);
+  if (old && room.value && !m[room.value]) m[room.value] = old;
+  try { localStorage.removeItem('sm.teacherKey'); } catch { /* */ }
+  return m;
+})());
+export const teacherKey = computed(() => (room.value ? teacherKeys.value[room.value] ?? null : null));
 export const mode = signal<'local' | 'connecting' | 'live' | 'offline'>(room.value ? 'connecting' : 'local');
 export const serverOk = signal<boolean | null>(null);
 export const aiOk = signal(false);
@@ -44,9 +52,10 @@ export const presence = signal(0);
 export const group = signal<number>(ls.get('sm.group', 1));
 effect(() => ls.set('sm.group', group.value));
 effect(() => ls.set('sm.room', room.value));
-effect(() => ls.set('sm.teacherKey', teacherKey.value));
+effect(() => ls.set('sm.teacherKeys', teacherKeys.value));
 
-const entriesKey = () => `sm.entries:${room.value ?? 'local'}`;
+// クラスを切りかえたとき、前のクラスのデータを新しいクラスの保存場所に書かないよう、room は peek で読む
+const entriesKey = () => `sm.entries:${room.peek() ?? 'local'}`;
 export const entries = signal<Entry[]>(ls.get(entriesKey(), []));
 export const pending = signal<Entry[]>(ls.get('sm.pending', []));
 effect(() => ls.set(entriesKey(), entries.value));
@@ -54,7 +63,13 @@ effect(() => ls.set('sm.pending', pending.value));
 
 export function reloadEntries() {
   entries.value = ls.get(entriesKey(), []);
+  resetGen.value = ls.get(genKey(), 0);
 }
+
+// クラスで最後にリセットした時刻。入力に付けて送る（リセット前の入力が後から届いても戻さない）
+const genKey = () => `sm.gen:${room.peek() ?? 'local'}`;
+export const resetGen = signal<number>(ls.get(genKey(), 0));
+effect(() => ls.set(genKey(), resetGen.value));
 
 export const lastAdded = signal<Entry | null>(null);
 
@@ -75,6 +90,9 @@ for (const k of ['sm.cards', 'sm.seeded', 'sm.draft']) { try { localStorage.remo
 export interface Worksheet { fact: string; reason: string; next: string; checks: boolean[] }
 export const worksheet = signal<Worksheet>(ls.get('sm.sheet', { fact: '', reason: '', next: '', checks: [false, false, false] }));
 effect(() => ls.set('sm.sheet', worksheet.value));
+export function clearWorksheet() {
+  worksheet.value = { fact: '', reason: '', next: '', checks: [false, false, false] };
+}
 export function appendTo(field: 'fact' | 'reason' | 'next', text: string) {
   const cur = worksheet.value[field];
   worksheet.value = { ...worksheet.value, [field]: cur ? `${cur.replace(/\s+$/, '')}\n${text}` : text };

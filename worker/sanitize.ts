@@ -4,6 +4,8 @@ import { PLACE_BY_ID } from '../src/data/places';
 export interface Entry {
   id: string; fishId: string | null; fishName: string; placeId: string;
   method: 'wild' | 'farmed' | 'unknown'; group: number; at: number; device: string;
+  /** 入力したときに端末が知っていた最後のリセットの時刻（リセット前の入力が後から届いても戻さないため） */
+  gen?: number;
 }
 
 /** 受け取った入力を検査して、安全な形に整える */
@@ -21,6 +23,7 @@ export function sanitize(x: unknown): Entry | null {
   const method = o.method === 'wild' || o.method === 'farmed' ? o.method : 'unknown';
   const group = Math.max(1, Math.min(8, Math.round(Number(o.group) || 1)));
   const at = Math.min(Date.now() + 60_000, Math.max(0, Number(o.at) || Date.now()));
-  return { id, fishId, fishName, placeId, method, group, at, device };
+  const gen = Math.max(0, Math.floor(Number(o.gen) || 0));
+  return gen ? { id, fishId, fishName, placeId, method, group, at, device, gen } : { id, fishId, fishName, placeId, method, group, at, device };
 }
 

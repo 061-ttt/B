@@ -11,6 +11,8 @@ export interface Entry {
   group: number;
   at: number;
   device: string;
+  /** 入力したときに知っていた最後のリセットの時刻 */
+  gen?: number;
 }
 
 /** detail＝産地ごと、world＝国内を「日本」1本にまとめる（地球儀を引いたとき） */

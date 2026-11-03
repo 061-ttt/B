@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import { appendTo, entries, showToast, tab, worksheet } from '../state';
+import { appendTo, clearWorksheet, entries, showToast, tab, worksheet } from '../state';
+import { ResetButton } from './ResetButton';
 import { factLines, localQuestions, stats } from '../core/model';
 import { aiQuestions } from '../core/sync';
 import { G } from './Glyph';
@@ -69,7 +70,11 @@ export function Worksheet() {
           <label key={t}><input type="checkbox" checked={w.checks[i]} onChange={(e) => { const c = [...w.checks]; c[i] = (e.target as HTMLInputElement).checked; worksheet.value = { ...worksheet.value, checks: c }; }} />{t}</label>
         ))}
       </div>
-      <p class="hint" style={{ textAlign: 'center' }}>シートに書いたことは、このタブレットだけに保存されます（ほかの人には見えません）</p>
+      <p class="hint" style={{ textAlign: 'center' }}>シートに書いたことは、このタブレットだけに保存され、リセットするまで残ります（ほかの人には見えません）</p>
+      <div class="reset-box">
+        <ResetButton testid="reset-sheet" label="シートをリセット" warn="このシートに書いたことが全部消えます。元にはもどせません。（地球儀の魚は消えません）"
+          onReset={() => { clearWorksheet(); setSeeds(null); showToast('シートをリセットしました'); return true; }} />
+      </div>
     </section>
   );
 }

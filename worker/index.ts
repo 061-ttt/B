@@ -18,7 +18,6 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_RE = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
 const MAX_ENTRIES = 3000;   // 60人×50件まで
 const MAX_SOCKETS = 150;    // 1クラスの同時接続（60人＋先生・電子黒板などに余裕）
-const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function randomString(n: number, chars = CODE_CHARS) {
   const b = crypto.getRandomValues(new Uint8Array(n));
@@ -90,6 +89,9 @@ export class Room extends DurableObject<Env> {
     if (r.length >= 30) return { error: 'too many', status: 429 };
     r.push(now);
     this.recent.set(e.device, r);
+    // リセットより前に入力されて、送れずに残っていたものは受け付けない（消したデータが戻らないように）
+    const resetAt = Number(this.meta('resetAt') ?? 0);
+    if (resetAt && (e.gen ?? 0) < resetAt) return { error: 'reset', status: 409 };
     const n = this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM entries').one().n;
     if (n >= MAX_ENTRIES) return { error: 'full', status: 507 };
     // 同じIDが2回届いても1件だけ（送り直しに強い）
@@ -118,7 +120,7 @@ export class Room extends DurableObject<Env> {
       if (created) return Response.json({ error: 'exists' }, { status: 409 });
       const { keyHash } = (await req.json()) as { keyHash: string };
       this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?), (?, ?)', 'created', String(Date.now()), 'key', keyHash);
-      await this.ctx.storage.setAlarm(Date.now() + TTL_MS);
+      // データは先生がリセットするまで残す（期限で自動的に消すことはしない）
       return Response.json({ ok: true });
     }
     if (!created) return Response.json({ error: 'not found' }, { status: 404 });
@@ -128,12 +130,23 @@ export class Room extends DurableObject<Env> {
       if (this.ctx.getWebSockets().length >= MAX_SOCKETS) return Response.json({ error: 'room full' }, { status: 503 });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
-      pair[1].send(JSON.stringify({ type: 'snapshot', entries: this.entries() }));
+      pair[1].send(JSON.stringify({ type: 'snapshot', entries: this.entries(), resetAt: Number(this.meta('resetAt') ?? 0) }));
       this.presence();
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
     if (path === '/state' && req.method === 'GET') {
-      return Response.json({ entries: this.entries(), created: Number(created) });
+      return Response.json({ entries: this.entries(), created: Number(created), resetAt: Number(this.meta('resetAt') ?? 0) });
+    }
+    // 先生がクラスのデータをすべて消す（クラスを作った端末のかぎが必要）
+    if (path === '/reset' && req.method === 'POST') {
+      const { key } = (await req.json().catch(() => ({}))) as { key?: string };
+      if (!key || (await sha256(key)) !== this.meta('key')) return Response.json({ error: 'forbidden' }, { status: 403 });
+      const at = Date.now();
+      this.sql.exec('DELETE FROM entries');
+      this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', 'resetAt', String(at));
+      this.outbox = [];
+      this.broadcast({ type: 'reset', at });
+      return Response.json({ ok: true, at });
     }
     if (path === '/entries' && req.method === 'POST') {
       const r = this.add(await req.json().catch(() => null));
@@ -171,10 +184,9 @@ export class Room extends DurableObject<Env> {
     this.presence(ws);
   }
 
-  /** 30日たったらクラスのデータをすべて消す */
+  /** 以前の版では30日で消すアラームを予約していた。そのアラームが来ても何も消さない */
   async alarm() {
-    for (const ws of this.ctx.getWebSockets()) try { ws.close(1000, 'expired'); } catch { /* */ }
-    await this.ctx.storage.deleteAll();
+    /* データはリセットするまで残す */
   }
 }
 

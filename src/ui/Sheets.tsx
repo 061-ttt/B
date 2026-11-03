@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BottomSheet } from './Sheet';
 import { aiOk, device, entries, focusFish, group, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey } from '../state';
-import { addEntry, aiParse, createRoom, deleteEntry, joinRoom } from '../core/sync';
+import { ResetButton } from './ResetButton';
+import { addEntry, aiParse, createRoom, deleteEntry, joinRoom, resetData } from '../core/sync';
 import { parseTag, suggestFish, findFish, type Method } from '../data/parse';
 import { findPlace, suggestPlaces, PLACE_BY_ID, type Place } from '../data/places';
 
@@ -245,6 +246,14 @@ function RoomForm() {
             <button class="btn" onClick={() => { navigator.clipboard?.writeText(url).then(() => showToast('リンクをコピーしました'), () => showToast(url)); }}>リンクをコピー</button>
             <button class="btn" onClick={() => joinRoom(null)}>この端末だけで使う</button>
           </div>
+          <div class="reset-box">
+            {teacherKey.value ? (
+              <ResetButton testid="reset-class" label="クラスのデータをリセット"
+                warn={`地球儀に集まった${entries.value.length}件の魚が、クラス全員の画面から消えます。元にはもどせません。（ワークシートは消えません）`}
+                onReset={async () => { const ok = await resetData(); if (ok) showToast('クラスのデータをリセットしました'); return ok; }} />
+            ) : null}
+            <p class="hint" style={{ textAlign: 'center' }}>{teacherKey.value ? 'データは、ここでリセットするまで残ります。' : 'データは、先生がリセットするまで残ります。'}</p>
+          </div>
         </>
       ) : (
         <>
@@ -265,7 +274,12 @@ function RoomForm() {
             <button class="qr small" dangerouslySetInnerHTML={{ __html: qr }} aria-label="このアプリのQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: null })} />
             <p class="hint">このアプリを開くQRコード。タップで大きく表示</p>
           </div>
-          <p class="hint">名前などの個人情報は集めません。クラスのデータは30日たつと自動で消えます。</p>
+          <p class="hint">名前などの個人情報は集めません。データは、リセットするまで残ります。</p>
+          <div class="reset-box">
+            <ResetButton testid="reset-local" label="この端末のデータをリセット"
+              warn={`この端末に保存している${entries.value.length}件の魚が消えます。元にはもどせません。（ワークシートは消えません）`}
+              onReset={async () => { await resetData(); showToast('この端末のデータをリセットしました'); return true; }} />
+          </div>
         </>
       )}
     </div>

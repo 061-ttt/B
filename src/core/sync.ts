@@ -1,7 +1,7 @@
 // クラスのデータをCloudflare（Durable Object）とリアルタイムにそろえる。
 // サーバーに届かないときは端末内に保存し、つながったら送り直す。
 import type { Entry } from './model';
-import { aiOk, device, entries, mode, pending, presence, reloadEntries, removeEntry, room, serverOk, showToast, teacherKey, upsertEntry, lastAdded } from '../state';
+import { aiOk, device, entries, mode, pending, presence, reloadEntries, removeEntry, resetGen, room, serverOk, showToast, teacherKey, teacherKeys, upsertEntry, lastAdded } from '../state';
 
 // 他の人の入力では地球儀を動かさない（60人分あちこちに飛ばないように）。自分の入力のときだけ飛ぶ
 
@@ -33,7 +33,7 @@ export async function checkServer(): Promise<boolean> {
 export async function createRoom(): Promise<string | null> {
   try {
     const r = await j<{ code: string; teacherKey: string }>('/api/rooms', { method: 'POST', body: '{}' });
-    teacherKey.value = r.teacherKey;
+    teacherKeys.value = { ...teacherKeys.value, [r.code]: r.teacherKey };
     await joinRoom(r.code);
     return r.code;
   } catch {
@@ -62,8 +62,9 @@ async function connect() {
   if (serverOk.value === null) await checkServer();
   if (!serverOk.value) { mode.value = 'offline'; schedule(); return; }
   try {
-    const r = await j<{ entries: Entry[] }>(`/api/rooms/${c}`);
+    const r = await j<{ entries: Entry[]; resetAt?: number }>(`/api/rooms/${c}`);
     if (room.value !== c) return;
+    applyResetAt(r.resetAt ?? 0);
     // サーバーの内容＋まだ送れていないもの
     const mine = pending.value.filter((p) => !r.entries.some((e) => e.id === p.id));
     entries.value = [...r.entries, ...mine];
@@ -84,6 +85,13 @@ function schedule() {
   clearTimeout(retryTimer);
   retry = Math.min(retry + 1, 6);
   retryTimer = window.setTimeout(() => { serverOk.value = null; connect(); }, 1000 * 2 ** retry);
+}
+
+/** リセットを知ったら、それより前に入力して送れていないものは捨てる */
+function applyResetAt(at: number) {
+  if (!at || at <= resetGen.peek()) return;
+  resetGen.value = at;
+  pending.value = pending.peek().filter((p) => (p.gen ?? 0) >= at);
 }
 
 // 受け取った入力は30ミリ秒ごとにまとめて画面に反映する（60人が同時に送っても描き直しは少なく）
@@ -116,7 +124,7 @@ function openSocket(code: string) {
   s.onopen = () => { mode.value = 'live'; retry = 0; flushWs(); };
   s.onmessage = (ev) => {
     if (ev.data === 'pong') return;
-    let m: { type: string; entry?: Entry; id?: string; entries?: Entry[]; n?: number; error?: string };
+    let m: { type: string; entry?: Entry; id?: string; entries?: Entry[]; n?: number; error?: string; at?: number; resetAt?: number };
     try { m = JSON.parse(ev.data); } catch { return; }
     if (m.type === 'add' && m.entry) { inbox.push(m.entry); scheduleInbox(); }
     else if (m.type === 'adds' && m.entries) { inbox.push(...m.entries); scheduleInbox(); }
@@ -124,10 +132,18 @@ function openSocket(code: string) {
     else if (m.type === 'ack' && m.id) { pending.value = pending.peek().filter((p) => p.id !== m.id); }
     else if (m.type === 'nack' && m.id) {
       pending.value = pending.peek().filter((p) => p.id !== m.id);
-      if (m.error === 'too many') showToast('入力が多すぎます。少し待ってからもう一度');
+      if (m.error === 'reset') removeEntry(m.id);
+      else if (m.error === 'too many') showToast('入力が多すぎます。少し待ってからもう一度');
       else if (m.error === 'full') showToast('このクラスはいっぱいです');
     }
+    else if (m.type === 'reset') {
+      inbox = []; inboxDel = [];
+      applyResetAt(m.at ?? Date.now());
+      entries.value = [...pending.peek()];
+      if (!teacherKey.peek()) showToast('先生がクラスのデータをリセットしました');
+    }
     else if (m.type === 'snapshot' && m.entries) {
+      applyResetAt(m.resetAt ?? 0);
       const mine = pending.peek().filter((p) => !m.entries!.some((e) => e.id === p.id));
       entries.value = [...m.entries, ...mine];
     }
@@ -151,12 +167,17 @@ async function flush() {
     try {
       await j(`/api/rooms/${c}/entries`, { method: 'POST', body: JSON.stringify(e) });
       pending.value = pending.value.filter((p) => p.id !== e.id);
-    } catch { break; }
+    } catch (err) {
+      // リセット前の入力（409）や受け付けられない入力（4xx）は送り直さない
+      if (/^4\d\d$/.test(String((err as Error).message))) { pending.value = pending.value.filter((p) => p.id !== e.id); removeEntry(e.id); continue; }
+      break;
+    }
   }
 }
 
 /** 入力を追加。画面にはすぐ出し、サーバーには裏で送る */
 export async function addEntry(e: Entry) {
+  if (room.value && resetGen.peek()) e = { ...e, gen: resetGen.peek() };
   upsertEntry(e);
   lastAdded.value = e;
   if (!room.value) return;
@@ -174,6 +195,23 @@ export async function deleteEntry(e: Entry) {
   try {
     await j(`/api/rooms/${room.value}/entries/${e.id}`, { method: 'DELETE', body: JSON.stringify({ device, key: teacherKey.value }) });
   } catch { /* オフライン時は手元だけ */ }
+}
+
+/** データをリセットする。クラスでは先生の端末だけ（サーバーの全員分を消す）。この端末だけのときは端末の中を消す */
+export async function resetData(): Promise<boolean> {
+  if (!room.value) { entries.value = []; pending.value = []; return true; }
+  const key = teacherKey.peek();
+  if (!key) return false;
+  try {
+    const r = await j<{ ok: boolean; at: number }>(`/api/rooms/${room.value}/reset`, { method: 'POST', body: JSON.stringify({ key }) });
+    applyResetAt(r.at);
+    entries.value = [];
+    pending.value = [];
+    return true;
+  } catch {
+    showToast('リセットできませんでした。ネットワークを確かめてください');
+    return false;
+  }
 }
 
 export async function aiParse(text: string): Promise<{ fish?: string; place?: string; method?: string } | null> {

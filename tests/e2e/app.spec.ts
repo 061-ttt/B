@@ -275,7 +275,10 @@ test('8. 2台の端末でリアルタイムに集まる', async ({ browser }) =>
   const code = (await A.getByTestId('room-code').textContent())!.trim();
   expect(code).toMatch(/^[A-Z0-9]{6}$/);
   await expect(A.getByTestId('room-sheet')).toContainText('つながっています');
+  // 2台目のページを開いたあとはキー入力がそちらへ行くことがあるので、Aを前に出してから閉じる
+  await A.bringToFront();
   await A.keyboard.press('Escape');
+  await expect(A.getByTestId('room-sheet')).not.toHaveClass(/(^|\s)on(\s|$)/);
 
   await B.goto(`/?room=${code}`);
   await ready(B);
@@ -533,4 +536,99 @@ test('16. 1つの県に15種類あっても重ならない。地球儀を回し�
   await page.evaluate(() => (window as W).__sm!.scene.flyTo(-48, -34, 330, 10));
   await expect.poll(async () => Number((await info()).figVis), { timeout: 8000 }).toBe(0);
   w.close();
+});
+
+test('17. データはリセットするまで残る。クラスのリセットは先生の端末だけで、全員の画面から消える', async ({ browser }) => {
+  // 2台分を順に動かすので長め（テスト機はCPU2つ・GPUなし）
+  test.setTimeout(300_000);
+  const API = 'http://127.0.0.1:8787';
+  const room = await (await fetch(`${API}/api/rooms`, { method: 'POST', body: '{}' })).json() as { code: string; teacherKey: string };
+  const opts = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
+  const pause = (p: Page, on: boolean) => p.evaluate((on) => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(on), on);
+  // 先生の端末（クラスを作ったときのかぎを持っている）
+  const T = await (await browser.newContext(opts)).newPage();
+  await T.addInitScript(([code, key]) => { if (!localStorage.getItem('sm.teacherKeys')) localStorage.setItem('sm.teacherKeys', JSON.stringify({ [code]: key })); }, [room.code, room.teacherKey]);
+  await T.goto(`/?room=${room.code}`);
+  await ready(T);
+  await expect(T.locator('.status-dot.live')).toBeVisible();
+  await pause(T, false);
+  // 子どもの端末
+  const S = await (await browser.newContext(opts)).newPage();
+  await S.goto(`/?room=${room.code}`);
+  await ready(S);
+  await expect(S.locator('.status-dot.live')).toBeVisible();
+  await addEntry(S, 'さば', '銚子');
+  await addEntry(S, 'ふぐ', '山口');
+  await expect(T.getByTestId('total')).toHaveText('2', { timeout: 10_000 });
+  // シートにも書いておく
+  await S.locator('[data-tab=sheet]').click();
+  await S.getByTestId('ws-fact').fill('山口にふぐが集まっている');
+  // 読み込み直しても、クラスのデータもシートも残っている
+  await S.reload();
+  await ready(S);
+  await expect(S.getByTestId('total')).toHaveText('2');
+  await S.locator('[data-tab=sheet]').click();
+  await expect(S.getByTestId('ws-fact')).toHaveValue('山口にふぐが集まっている');
+  // サーバーにも残っている（期限で消すアラームは予約しない）
+  expect(((await (await fetch(`${API}/api/rooms/${room.code}`)).json()) as { entries: unknown[] }).entries).toHaveLength(2);
+  // 子どもの端末にはクラスのリセットボタンがない
+  await S.locator('[data-tab=map]').click();
+  await S.getByTestId('room-btn').click();
+  await expect(S.getByTestId('room-sheet')).toContainText('先生がリセットするまで残ります');
+  await expect(S.getByTestId('reset-class')).toHaveCount(0);
+  await S.bringToFront();
+  await S.keyboard.press('Escape');
+  await expect(S.getByTestId('room-sheet')).not.toHaveClass(/(^|\s)on(\s|$)/);
+  // かぎがなければサーバーもリセットを受け付けない
+  expect((await fetch(`${API}/api/rooms/${room.code}/reset`, { method: 'POST', body: JSON.stringify({ key: 'wrong' }) })).status).toBe(403);
+  // 先生がリセット（2回たしかめる）
+  await pause(S, false);
+  await pause(T, true);
+  await T.bringToFront();
+  await T.getByTestId('room-btn').click();
+  await T.getByTestId('reset-class').click();
+  await expect(T.getByTestId('reset-class-ask')).toContainText('2件');
+  await T.getByTestId('reset-class-ok').click();
+  await expect(T.getByTestId('total')).toHaveText('0');
+  await expect(S.getByTestId('total')).toHaveText('0', { timeout: 10_000 });
+  await expect(S.locator('.pin')).toHaveCount(0);
+  await S.bringToFront();
+  // シートは消えない
+  await S.locator('[data-tab=sheet]').click();
+  await expect(S.getByTestId('ws-fact')).toHaveValue('山口にふぐが集まっている');
+  // リセット前に入力して送れずに残っていたものが後から届いても、もどらない
+  const st = (await (await fetch(`${API}/api/rooms/${room.code}`)).json()) as { resetAt: number };
+  const old = await fetch(`${API}/api/rooms/${room.code}/entries`, { method: 'POST', body: JSON.stringify({ id: `old${Date.now().toString(36)}`, fishId: 'tuna', fishName: 'まぐろ', placeId: 'shizuoka', method: 'unknown', group: 1, at: Date.now(), device: 'dold' }) });
+  expect(old.status).toBe(409);
+  // リセットのあとの入力はふつうに集まる
+  await S.locator('[data-tab=map]').click();
+  await pause(T, false);
+  await pause(S, true);
+  await addEntry(S, 'かき', '広島');
+  await expect.poll(async () => ((await (await fetch(`${API}/api/rooms/${room.code}`)).json()) as { entries: { gen?: number }[] }).entries.map((e) => e.gen)).toEqual([st.resetAt]);
+  // シートのリセット
+  await S.locator('[data-tab=sheet]').click();
+  await S.getByTestId('reset-sheet').click();
+  await S.getByTestId('reset-sheet-ok').click();
+  await expect(S.getByTestId('ws-fact')).toHaveValue('');
+  await T.context().close();
+  await S.context().close();
+});
+
+test('18. この端末だけで使うときも、リセットするまで残る', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await addEntry(page, 'まぐろ', '静岡');
+  await expect(page.getByTestId('total')).toHaveText('1');
+  await page.reload();
+  await ready(page);
+  await expect(page.getByTestId('total')).toHaveText('1');
+  await page.getByTestId('room-btn').click();
+  await expect(page.getByTestId('room-sheet')).toContainText('リセットするまで残ります');
+  await page.getByTestId('reset-local').click();
+  await page.getByTestId('reset-local-ok').click();
+  await expect(page.getByTestId('total')).toHaveText('0');
+  await page.reload();
+  await ready(page);
+  await expect(page.getByTestId('total')).toHaveText('0');
 });

@@ -227,6 +227,12 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .btn svg { width: 18px; height: 18px; flex: none; }
 .btn.primary { background: linear-gradient(180deg, #a6f9ff, var(--cyan) 60%, #1cb8d8); color: #02131a; border-color: transparent; box-shadow: 0 0 20px rgba(62, 230, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .7); }
 .btn.block { width: 100%; height: 54px; border-radius: 27px; font-size: 17px; }
+.btn.danger { background: linear-gradient(180deg, #ff8a95, var(--red)); color: #fff; border-color: transparent; box-shadow: 0 0 18px rgba(255, 74, 92, .45); }
+.reset-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .08); display: grid; gap: 8px; justify-items: center; }
+.reset-btn { color: #ff9aa4; border-color: rgba(255, 74, 92, .45); }
+.reset-ask { width: 100%; padding: 12px; border-radius: 16px; border: 1px solid rgba(255, 74, 92, .55); background: rgba(255, 74, 92, .08); animation: tagIn .4s var(--spring) both; }
+.reset-ask p { margin: 0 0 10px; font-size: 13px; line-height: 1.6; color: #ffd7db; font-weight: 700; }
+.reset-acts { display: flex; gap: 8px; justify-content: flex-end; }
 .btn[disabled] { opacity: .4; pointer-events: none; box-shadow: none; }
 
 /* ワークシート */

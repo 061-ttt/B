@@ -215,4 +215,10 @@ describe('サーバーの入力検査', () => {
     expect(e.fishName.length).toBeLessThanOrEqual(24);
     expect(e.group).toBe(8);
   });
+  it('リセットの時刻（gen）は数として残し、なければ付けない', () => {
+    const base = { id: 'eabc12', fishId: 'salmon', fishName: 'さけ', placeId: 'chile', device: 'd1' };
+    expect(sanitize({ ...base, gen: 1793660000000 })?.gen).toBe(1793660000000);
+    expect(sanitize({ ...base, gen: 'x' })).not.toHaveProperty('gen');
+    expect(sanitize(base)).not.toHaveProperty('gen');
+  });
 });
