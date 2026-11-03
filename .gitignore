@@ -6,3 +6,4 @@ playwright-report/
 .dev.vars
 *.log
 dist-standalone/
+__pycache__/
