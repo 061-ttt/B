@@ -2,8 +2,6 @@
 
 小学5年 社会科「水産業のさかんな地域」第1時のためのWebアプリ。家から持ってきた魚の値札の「産地」をクラス全員で入力すると、端のない3Dの地球儀に魚の立体フィギュアが浮かび上がり、入力が増えるほどその魚が大きくなる。寒流・暖流・潮目・海の深さを重ねて、「なぜその地域に水産業がさかんなのか」という単元を貫く問いを立てる。
 
-**アプリ：https://b.justinhiro0611.workers.dev/** （先生が「クラスをつくる」と出るQRコードで、クラス全員の入力が1つの地球儀に集まる）
-
 設計に使ったプロンプトは [docs/PROMPT.md](docs/PROMPT.md)。
 
 ## 授業での使い方
@@ -130,7 +128,7 @@ E2Eで確認していること：
 どちらか一つ。
 
 **A. Cloudflare のダッシュボードから（おすすめ・トークン不要）**
-Workers & Pages →「作成」→「Gitリポジトリをインポート」→ このリポジトリを選ぶ。ビルドコマンド `npm run build`、デプロイコマンド `npx wrangler deploy`。以後、main へのpushで自動公開される。（いまはこの方法で、Worker 名 `b` として公開している。`wrangler.jsonc` の name もそれに合わせてある）
+Workers & Pages →「作成」→「Gitリポジトリをインポート」→ このリポジトリを選ぶ。ビルドコマンド `npm run build`、デプロイコマンド `npx wrangler deploy`。以後、main へのpushで自動公開される。（いまはこの方法で、Worker 名 `b` として公開している。`wrangler.jsonc` の name もそれに合わせてある。公開先のアドレスはリポジトリには書かない。サーバーなしの1ファイル版を作るときは `VITE_APP_URL=公開先 npm run build:standalone` で案内先を入れる）
 
 **B. GitHub Actions から**
 リポジトリの Settings → Secrets に `CLOUDFLARE_API_TOKEN`（Workers・Durable Objects・Workers AI の編集権限）と `CLOUDFLARE_ACCOUNT_ID` を登録すると、テスト合格後に自動でデプロイされる。

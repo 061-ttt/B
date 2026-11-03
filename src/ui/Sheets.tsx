@@ -270,7 +270,7 @@ function RoomForm() {
             {busy ? 'つくっています…' : '先生：クラスをつくる（QRコードが出ます）'}
           </button>
           {STANDALONE ? (
-            <p class="hint" data-testid="go-app">この画面はお試し用の版で、データはこの端末だけに保存されます。クラスで共有するときは、<a href={APP_URL} target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 800 }}>本番のアプリ</a>を開いてください（下のQRコードでも開けます）。</p>
+            <p class="hint" data-testid="go-app">この画面はお試し用の版で、データはこの端末だけに保存されます。クラスで共有するときは、{APP_URL ? <><a href={APP_URL} target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 800 }}>本番のアプリ</a>を開いてください（下のQRコードでも開けます）。</> : '先生から聞いた本番のアプリのアドレスを開いてください。'}</p>
           ) : serverOk.value === false && <p class="hint">サーバーにつながらないため、この端末だけで使えます。</p>}
           <div class="app-qr">
             <button class="qr small" dangerouslySetInnerHTML={{ __html: qr }} aria-label="このアプリのQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: null })} />
