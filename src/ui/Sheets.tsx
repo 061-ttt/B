@@ -21,7 +21,7 @@ import { uid } from '../core/model';
 import { pinsNow, globe } from './MapView';
 import { DEPTH_LEGEND } from '../map/depth';
 import { openFish } from './Zukan';
-import { bigQr, joinUrl, qrSvg, scanning } from './Qr';
+import { APP_URL, STANDALONE, bigQr, joinUrl, qrSvg, scanning } from './Qr';
 
 export function Sheets() {
   const s = sheet.value;
@@ -269,7 +269,9 @@ function RoomForm() {
           <button class="btn block" disabled={busy || serverOk.value === false} onClick={async () => { setBusy(true); const c = await createRoom(); setBusy(false); if (c) bigQr.value = { code: c }; }} data-testid="create-room">
             {busy ? 'つくっています…' : '先生：クラスをつくる（QRコードが出ます）'}
           </button>
-          {serverOk.value === false && <p class="hint">サーバーにつながらないため、この端末だけで使えます。</p>}
+          {STANDALONE ? (
+            <p class="hint" data-testid="go-app">この画面はお試し用の版で、データはこの端末だけに保存されます。クラスで共有するときは、<a href={APP_URL} target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 800 }}>本番のアプリ</a>を開いてください（下のQRコードでも開けます）。</p>
+          ) : serverOk.value === false && <p class="hint">サーバーにつながらないため、この端末だけで使えます。</p>}
           <div class="app-qr">
             <button class="qr small" dangerouslySetInnerHTML={{ __html: qr }} aria-label="このアプリのQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: null })} />
             <p class="hint">このアプリを開くQRコード。タップで大きく表示</p>

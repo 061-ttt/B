@@ -13,8 +13,12 @@ export function qrSvg(text: string): string {
 }
 
 /** 参加用のリンク */
+/** クラスで共有できる本番のアプリ（Cloudflare）。サーバーなしの1ファイル版からは、ここへ案内する */
+export const APP_URL = 'https://b.justinhiro0611.workers.dev/';
+export const STANDALONE = (import.meta.env.VITE_STANDALONE as string | undefined) === '1' || location.protocol === 'file:';
+
 export function joinUrl(code: string | null): string {
-  const u = new URL(location.pathname, location.origin);
+  const u = STANDALONE ? new URL(APP_URL) : new URL(location.pathname, location.origin);
   if (code) u.searchParams.set('room', code);
   return u.toString();
 }
