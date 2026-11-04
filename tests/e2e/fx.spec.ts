@@ -67,7 +67,8 @@ test('fx3. 図鑑の「地球儀で産地を見る」で、なぜ？カードが
   await expect(page.getByTestId('focus-card')).toContainText('寒流');
   await page.getByTestId('focus-to-sheet').click();
   await page.locator('[data-tab=sheet]').click();
-  await expect(page.getByTestId('sheet')).toContainText('さんまがとれる場所');
+  // 「次に調べたいこと」の欄（textarea）に入る
+  await expect(page.getByTestId('ws-next')).toHaveValue(/さんまがとれる場所/);
 });
 
 test('fx4. 「新しい演出」をオフにすると元の画面（集計・ボタン・トースト）にもどる', async ({ page }) => {
