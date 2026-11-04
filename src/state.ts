@@ -82,6 +82,16 @@ effect(() => ls.set(genKey(), resetGen.value));
 
 export const lastAdded = signal<Entry | null>(null);
 
+// ── 改良版の演出（天秤・着地の1語・海流の強調・はじいて入力 など）──
+// オフにすると、元の版と同じ画面・動きにもどる。?classic=1 で開くとオフ、?classic=0 でオン
+const classicParam = params.get('classic');
+export const enhanced = signal<boolean>(classicParam === '1' ? false : classicParam === '0' ? true : ls.get('sm.enhanced', true));
+effect(() => ls.set('sm.enhanced', enhanced.value));
+effect(() => { if (typeof document !== 'undefined') document.documentElement.classList.toggle('fx', enhanced.value); });
+/** 班を一度えらんだか（えらんだ後は入力のたびに班を聞かない） */
+export const groupChosen = signal<boolean>(ls.get('sm.groupChosen', false));
+effect(() => ls.set('sm.groupChosen', groupChosen.value));
+
 export function upsertEntry(e: Entry) {
   if (entries.value.some((x) => x.id === e.id)) return;
   entries.value = [...entries.value, e];

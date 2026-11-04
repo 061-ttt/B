@@ -7,6 +7,7 @@ if (import.meta.env.VITE_STANDALONE !== '1') {
   import('@fontsource/m-plus-rounded-1c/800.css');
   import('@fontsource/outfit/600.css');
   import('@fontsource/outfit/800.css');
+  import('@fontsource/dotgothic16/400.css');   // 改良版の大きな数字（ドット文字）
 }
 import { App } from './ui/App';
 import { ready, room, entries, worksheet, view, filter, tab, mode, showToast, teacherKey } from './state';

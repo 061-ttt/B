@@ -10,7 +10,7 @@ export default defineConfig({
         viteSingleFile(),
         {
           name: 'google-fonts-link',
-          transformIndexHtml: (html: string) => html.replace('<title>', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Outfit:wght@600;800&display=swap" />\n  <title>'),
+          transformIndexHtml: (html: string) => html.replace('<title>', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Outfit:wght@600;800&family=DotGothic16&display=swap" />\n  <title>'),
         },
       ]
     : [],

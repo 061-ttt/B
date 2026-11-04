@@ -319,6 +319,7 @@ export class Globe {
         const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(p2, false, 'centripetal'), Math.max(8, n * 3), 0.5, 6, false);
         const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false }));
         m.renderOrder = 2;
+        m.userData.kind = color === WARM ? 'warm' : 'cold';
         this.ribbons.add(m);
       };
       if (c.kind === 'meet') { tube(WARM, 0.8); tube(COLD, -0.8); } else tube(c.kind === 'warm' ? WARM : COLD, 0);
@@ -379,6 +380,104 @@ export class Globe {
   }
   flyJapan(dur?: number) { this.flyTo(136.6, 36.2, this.japanDistance(), dur); }
   flyWorld(dur?: number) { this.flyTo(165, 18, this.worldDistance(), dur); }
+
+  // ── 改良版：関係する海流だけを光らせる ──
+  private emphasis: 'warm' | 'cold' | 'both' | 'none' | null = null;
+  /** warm／cold＝その海流だけ光らせ、ほかはうすく。both＝両方そのまま（名前だけ整理）。none＝海流をうすく。null＝元どおり */
+  setEmphasis(k: 'warm' | 'cold' | 'both' | 'none' | null) {
+    if (k === this.emphasis || !this.warmMesh) return;
+    this.emphasis = k;
+    const lit = (kind: 'warm' | 'cold') => k === null || k === 'both' || k === kind;
+    const arrow = (m: THREE.InstancedMesh, kind: 'warm' | 'cold') => { (m.material as THREE.MeshBasicMaterial).opacity = lit(kind) ? 0.96 : 0.12; };
+    arrow(this.warmMesh, 'warm');
+    arrow(this.coldMesh, 'cold');
+    for (const r of this.ribbons.children as THREE.Mesh[]) {
+      const kind = r.userData.kind as 'warm' | 'cold';
+      (r.material as THREE.MeshBasicMaterial).opacity = k === null ? 0.2 : lit(kind) ? 0.42 : 0.04;
+    }
+    for (const l of this.labels) {
+      let dim = false;
+      if (k !== null) {
+        if (l.kind === 'current') {
+          const c = l.el.classList;
+          dim = c.contains('meet') ? k === 'none' : (c.contains('warm') && !lit('warm')) || (c.contains('cold') && !lit('cold'));
+        } else dim = true;   // 海・海溝・漁場の名前は一歩下げる
+      }
+      l.el.classList.toggle('fx-dim', dim);
+    }
+  }
+
+  // ── 改良版：産地から日本へのびる光の弧 ──
+  private arcs: { mesh: THREE.Mesh; head: THREE.Sprite; curve: THREE.CatmullRomCurve3; t0: number; grow: number; hold: number; fade: number; segs: number; rad: number }[] = [];
+  private dotTex: THREE.Texture | null = null;
+  arc(lon: number, lat: number, toLon: number, toLat: number, kind: 'domestic' | 'overseas') {
+    if (!this.warmMesh) return;
+    const a = lonLatTo(lon, lat, 1), b = lonLatTo(toLon, toLat, 1);
+    const ang = a.angleTo(b);
+    if (ang < 0.015) return;
+    while (this.arcs.length >= 8) this.dropArc(this.arcs[0]);
+    const q = new THREE.Quaternion().setFromUnitVectors(a, b);
+    const lift = R * (0.025 + Math.min(0.32, ang * 0.2));
+    const pts: THREE.Vector3[] = [];
+    const N = 48;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts.push(a.clone().applyQuaternion(new THREE.Quaternion().slerp(q, t)).multiplyScalar(R + 0.8 + lift * Math.sin(Math.PI * t)));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const segs = 96, rad = 6;
+    const far = kind === 'overseas';
+    const geo = new THREE.TubeGeometry(curve, segs, far ? 0.55 : 0.32, rad, false);
+    geo.setDrawRange(0, 0);
+    const color = far ? 0xffc44d : 0x3dff9a;
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+    mesh.renderOrder = 4;
+    mesh.frustumCulled = false;
+    if (!this.dotTex) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const g = c.getContext('2d')!;
+      const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+      this.dotTex = new THREE.CanvasTexture(c);
+    }
+    const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.dotTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    head.renderOrder = 5;
+    const size = far ? 7 : 4.5;
+    head.scale.set(size, size, 1);
+    head.position.copy(pts[0]);
+    this.world.add(mesh, head);
+    this.arcs.push({ mesh, head, curve, t0: performance.now(), grow: this.reduced ? 0 : 1100 + ang * 600, hold: 1800, fade: 800, segs, rad });
+  }
+  private dropArc(r: (typeof this.arcs)[number]) {
+    this.world.remove(r.mesh, r.head);
+    r.mesh.geometry.dispose();
+    (r.mesh.material as THREE.Material).dispose();
+    r.head.material.dispose();
+    this.arcs = this.arcs.filter((x) => x !== r);
+  }
+  private updateArcs(now: number) {
+    for (const r of [...this.arcs]) {
+      const t = now - r.t0;
+      const k = r.grow ? Math.min(1, t / r.grow) : 1;
+      const e = 1 - Math.pow(1 - k, 3);
+      r.mesh.geometry.setDrawRange(0, Math.ceil(e * r.segs) * r.rad * 6);
+      r.head.position.copy(r.curve.getPointAt(e));
+      // 日本に着いたら、ぽんと光る
+      const after = t - r.grow;
+      const s0 = r.head.userData.s0 ?? (r.head.userData.s0 = r.head.scale.x);
+      if (after > 0) { const p = Math.min(1, after / 500); r.head.scale.setScalar(s0 * (1 + 1.4 * Math.sin(Math.PI * p))); }
+      const fadeK = (t - r.grow - r.hold) / r.fade;
+      if (fadeK > 0) {
+        const o = Math.max(0, 1 - fadeK);
+        (r.mesh.material as THREE.MeshBasicMaterial).opacity = 0.95 * o;
+        r.head.material.opacity = o;
+      }
+      if (fadeK >= 1) this.dropArc(r);
+    }
+  }
+  arcCount() { return this.arcs.length; }
 
   setLayers(l: Partial<Layers>) { this.layers = { ...this.layers, ...l }; this.applyLayers(); }
   private applyLayers() {
@@ -807,6 +906,7 @@ export class Globe {
     if (this.layers.currents) this.updateArrows(this.reduced ? 0 : this.elapsed);
     this.camera.updateMatrixWorld();
     this.updateFigures(now);
+    if (this.arcs.length) this.updateArcs(now);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
     this.frames++;

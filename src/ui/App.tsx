@@ -7,6 +7,7 @@ import { Worksheet } from './Worksheet';
 import { G } from './Glyph';
 import { QrBig, QrScanner } from './Qr';
 import { Intro, intro } from './Intro';
+import { Arrival } from './Fx';
 
 const TABS: { id: Tab; label: string; icon: () => preact.JSX.Element }[] = [
   { id: 'map', label: '地球儀', icon: G.globe },
@@ -32,6 +33,7 @@ export function App() {
       <Worksheet />
       {tab.value !== 'map' && !wide.value && <><div class="fade-top" aria-hidden="true" /><div class="fade-bottom" aria-hidden="true" /></>}
       <TabBar />
+      {showMap && <Arrival />}
       <Sheets />
       <QrBig />
       <QrScanner />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BottomSheet } from './Sheet';
-import { aiOk, device, entries, focusFish, group, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey } from '../state';
+import { aiOk, device, enhanced, entries, focusFish, group, groupChosen, layers, mode, presence, room, serverOk, sheet, showToast, tab, teacherKey } from '../state';
 import { ResetButton } from './ResetButton';
 import { addEntry, aiParse, createRoom, deleteEntry, joinRoom, resetData } from '../core/sync';
 import { parseTag, suggestFish, findFish, type Method } from '../data/parse';
@@ -54,18 +54,29 @@ function AddForm() {
   const [note, setNote] = useState<{ ok: string[]; miss: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
   const rec = useRef<SR | null>(null);
+  const live = useRef(0);
+  const fx = enhanced.value;
   const SRC = (window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }).SpeechRecognition
     ?? (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
 
   const fishList = useMemo(() => (fishQ && !fish ? suggestFish(fishQ, 10) : FISH.slice(0, 12)), [fishQ, fish]);
   const placeList = useMemo(() => (placeQ && !place ? suggestPlaces(placeQ, 10) : []), [placeQ, place]);
 
-  async function runParse(text: string) {
+  async function runParse(text: string, rulesOnly = false) {
     if (!text.trim()) return;
     const r = parseTag(text);
     let f = r.fish, p = r.place, m = r.method;
     let fishText = r.fishText;
+    // 打っている途中の読み取り（改良版）は、見つかったものだけ入れる。まちがいの表示はボタンを押したときだけ
+    if (rulesOnly) {
+      if (f) { setFish(f); setFishQ(f.name); }
+      if (p) { setPlace(p); setPlaceQ(p.name); }
+      if (m !== 'unknown') setMethod(m);
+      if (f || p) setNote({ ok: [f && `魚：${f.name}`, p && `産地：${p.name}`, m !== 'unknown' && (m === 'farmed' ? '養殖' : '天然')].filter(Boolean) as string[], miss: [] });
+      return;
+    }
     if ((!f || !p) && aiOk.value) {
       setBusy(true);
       const a = await aiParse(text);
@@ -106,7 +117,8 @@ function AddForm() {
   function submit() {
     if (!can || !place) return;
     addEntry({ id: uid('e'), fishId: fish?.id ?? null, fishName, placeId: place.id, method, group: group.value, at: Date.now(), device });
-    showToast(`${place.name}に「${fishName}」をのせました`);
+    // 改良版は、地球儀の上に大きな文字で知らせる（Arrival）
+    if (!enhanced.peek()) showToast(`${place.name}に「${fishName}」をのせました`);
     if (navigator.vibrate) try { navigator.vibrate([10, 40, 10]); } catch { /* */ }
     sheet.value = null;
   }
@@ -116,7 +128,11 @@ function AddForm() {
       <h3><span class="em">魚</span>と産地を入力</h3>
       <label class="field-l" for="tag"><span class="num" style={{ '--n': 'var(--violet)' }}>01</span>値札の文字をそのまま（なくてもOK）</label>
       <div class="inp-row">
-        <input id="tag" class="inp" value={tag} placeholder="例：チリ産 銀鮭 養殖" onInput={(e) => setTag((e.target as HTMLInputElement).value)}
+        <input id="tag" class="inp" value={tag} placeholder="例：チリ産 銀鮭 養殖" onInput={(e) => {
+          const v = (e.target as HTMLInputElement).value;
+          setTag(v);
+          if (fx) { clearTimeout(live.current); live.current = window.setTimeout(() => runParse(v, true), 380); }
+        }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) runParse(tag); }} data-testid="tag-input" />
         {SRC && <button class={`btn mic ${listening ? 'on' : ''}`} aria-label="声で入力" onClick={listen} style={{ width: '48px', padding: 0, height: '48px', borderRadius: '16px' }}><G.mic /></button>}
         <button class="btn" onClick={() => runParse(tag)} disabled={!tag.trim() || busy} style={{ height: '48px', borderRadius: '16px' }} data-testid="parse">{busy ? '…' : '読み取る'}</button>
@@ -167,13 +183,68 @@ function AddForm() {
         ))}
       </div>
 
-      <label class="field-l"><span class="num" style={{ '--n': 'var(--pink)' }}>05</span>班</label>
-      <div class="groups">
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((g) => <button key={g} aria-pressed={group.value === g} onClick={() => (group.value = g)}>{g}</button>)}
-      </div>
+      {fx && groupChosen.value && !groupOpen ? (
+        <div class="group-line" data-testid="group-line">
+          <span class="num" style={{ '--n': 'var(--pink)' }}>05</span>班：<b>{group.value}班</b>
+          <button class="btn" onClick={() => setGroupOpen(true)}>かえる</button>
+        </div>
+      ) : (
+        <>
+          <label class="field-l"><span class="num" style={{ '--n': 'var(--pink)' }}>05</span>班</label>
+          <div class="groups">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((g) => <button key={g} aria-pressed={group.value === g} onClick={() => { group.value = g; groupChosen.value = true; setGroupOpen(false); }}>{g}</button>)}
+          </div>
+        </>
+      )}
 
       <div style={{ height: '16px' }} />
-      <button class="btn primary block" disabled={!can} onClick={submit} data-testid="submit">地図にのせる</button>
+      {fx
+        ? <ThrowCard can={can} fish={fish} fishName={fishName} place={place} onThrow={submit} />
+        : <button class="btn primary block" disabled={!can} onClick={submit} data-testid="submit">地図にのせる</button>}
+    </div>
+  );
+}
+
+/** 改良版の「のせる」：カードを上へはじくと地球儀へ飛んでいく（タップでもよい） */
+function ThrowCard({ can, fish, fishName, place, onThrow }: { can: boolean; fish: Fish | null; fishName: string; place: Place | null; onThrow: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const st = useRef<{ y: number; t: number; dy: number; drag: boolean; id: number } | null>(null);
+  const [gone, setGone] = useState(false);
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fly = () => {
+    if (!can || gone) return;
+    setGone(true);
+    if (navigator.vibrate) try { navigator.vibrate(12); } catch { /* */ }
+    setTimeout(onThrow, reduced ? 0 : 340);
+  };
+  const reset = () => { ref.current?.classList.remove('dragging'); ref.current?.style.setProperty('--dy', '0px'); st.current = null; };
+  const down = (e: PointerEvent) => { if (can && !gone) st.current = { y: e.clientY, t: performance.now(), dy: 0, drag: false, id: e.pointerId }; };
+  const move = (e: PointerEvent) => {
+    const s = st.current, el = ref.current;
+    if (!s || !el) return;
+    const raw = e.clientY - s.y;
+    s.dy = raw < 0 ? raw : raw * 0.2;   // 下へはあまり動かない
+    if (!s.drag && raw < -8) { s.drag = true; s.t = performance.now(); s.y = e.clientY; s.dy = 0; try { el.setPointerCapture(s.id); } catch { /* */ } el.classList.add('dragging'); }
+    if (s.drag) el.style.setProperty('--dy', `${s.dy}px`);
+  };
+  const up = () => {
+    const s = st.current;
+    if (!s) return;
+    if (!s.drag) { st.current = null; return; }
+    const v = s.dy / Math.max(1, performance.now() - s.t);   // px/ms（上がマイナス）
+    ref.current?.classList.remove('dragging');
+    if (s.dy < -70 || v < -0.55) { st.current = null; fly(); } else reset();
+  };
+  const fig = figure(fish?.id, true);
+  return (
+    <div ref={ref} class={`throw ${can ? 'ready' : ''} ${gone ? 'gone' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={reset} data-testid="throw">
+      <div class="throw-card" aria-hidden="true">
+        <span class="throw-fig">{fig ? <img src={fig} alt="" /> : <span dangerouslySetInnerHTML={{ __html: iconSvg(fish?.icon ?? 'fish', fish?.color ?? '#9fd3ff', 44) }} />}</span>
+        <span class="throw-t"><b>{fishName || '魚'}</b>を<br /><b class="pl">{place?.name ?? '？'}</b>へ</span>
+        <span class="throw-up"><G.chev /></span>
+      </div>
+      <p class="throw-hint">{can ? '上にはじいて、地球儀にのせよう（タップでもOK）' : '魚と産地がきまると、のせられます'}</p>
+      <button class="btn primary block" disabled={!can || gone} onClick={fly} data-testid="submit">地図にのせる</button>
     </div>
   );
 }
@@ -300,6 +371,10 @@ function Legend() {
           <button class="switch" role="switch" aria-checked={l[k]} aria-label={t} onClick={() => set(k)} data-testid={`layer-${k}`} />
         </div>
       ))}
+      <div class="toggle-row fx-toggle">
+        <span>新しい演出<small>天秤・着地の文字・海流の強調・はじいて入力。オフで元の画面にもどる</small></span>
+        <button class="switch" role="switch" aria-checked={enhanced.value} aria-label="新しい演出" onClick={() => (enhanced.value = !enhanced.value)} data-testid="fx-toggle" />
+      </div>
       <div class="legend-grid" style={{ marginTop: '16px' }}>
         <div class="legend-row"><span class="legend-arrows" style={{ color: 'var(--warm)' }}><i /><i /><i /></span><ruby>暖流<rt>だんりゅう</rt></ruby>　あたたかい海水の流れ</div>
         <div class="legend-row"><span class="legend-arrows" style={{ color: 'var(--cold)' }}><i /><i /><i /></span><ruby>寒流<rt>かんりゅう</rt></ruby>　つめたい海水の流れ</div>

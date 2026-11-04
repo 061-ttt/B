@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { computed } from '@preact/signals';
+import { computed, effect } from '@preact/signals';
 import type { Globe, GlobeData } from '../map/globe';
 import { aggregate, matches, stats, type FilterId, type Pin } from '../core/model';
-import { drawerWidth, entries, filter, focusFish, lastAdded, layers, ready, sheet, tab, view, wide } from '../state';
+import { drawerWidth, enhanced, entries, filter, focusFish, lastAdded, layers, ready, sheet, tab, view, wide } from '../state';
+import { Balance, FocusCard } from './Fx';
 import { FISH_BY_ID } from '../data/fish';
-import { PLACE_BY_ID } from '../data/places';
+import { JAPAN_POINT, PLACE_BY_ID } from '../data/places';
 import { G } from './Glyph';
 import { DEPTH_LEGEND } from '../map/depth';
 
@@ -79,12 +80,44 @@ export function MapView() {
     return () => { un.forEach((u) => u()); removeEventListener('resize', apply); };
   }, []);
 
+  // 改良版：図鑑で選んだ魚・暖流／寒流の絞り込みに合わせて、関係する海流だけを光らせる
+  useEffect(() => effect(() => {
+    const on = enhanced.value, ff = focusFish.value, f = filter.value;
+    if (!ready.value || !globe) return;
+    if (!on) { globe.setEmphasis(null); return; }
+    const fish = ff ? FISH_BY_ID.get(ff) : null;
+    if (fish) globe.setEmphasis(fish.current === 'warm' || fish.current === 'cold' ? fish.current : fish.current === 'inland' ? 'none' : 'both');
+    else globe.setEmphasis(f === 'warm' || f === 'cold' ? f : null);
+  }), []);
+
+  // 改良版：産地から日本へ光の弧を描く（自分の入力も、クラスのほかの人の入力も）
+  useEffect(() => {
+    const known = new Set(entries.peek().map((e) => e.id));
+    return entries.subscribe((list) => {
+      const fresh = list.filter((e) => !known.has(e.id));
+      for (const e of list) known.add(e.id);
+      // クラスに入った直後などのまとめての読みこみでは描かない
+      if (!fresh.length || fresh.length > 4 || !enhanced.peek() || !globe || !ready.peek()) return;
+      fresh.forEach((e, i) => {
+        const p = PLACE_BY_ID.get(e.placeId);
+        if (!p || p.id === 'japan') return;
+        setTimeout(() => globe?.arc(p.lon, p.lat, JAPAN_POINT.lon, JAPAN_POINT.lat, p.domestic ? 'domestic' : 'overseas'), 500 + i * 220);
+      });
+    });
+  }, []);
+
   // 新しい入力 → その場所へ飛ぶ
   useEffect(() => lastAdded.subscribe((e) => {
     if (!e || !globe) return;
     const p = PLACE_BY_ID.get(e.placeId);
     if (!p) return;
     const g = globe;
+    // 改良版：外国の産地は、産地と日本の真ん中から見て、光の弧が端から端まで見えるようにする
+    if (enhanced.peek() && !p.domestic) {
+      const m = midLonLat(p.lon, p.lat, JAPAN_POINT.lon, JAPAN_POINT.lat);
+      setTimeout(() => g.flyTo(m.lon, m.lat, g.worldDistance()), 150);
+      return;
+    }
     setTimeout(() => g.flyTo(p.lon, p.lat, p.domestic ? g.japanDistance() : Math.max(g.worldDistance() * 0.8, 260)), 150);
   }), []);
 
@@ -93,6 +126,15 @@ export function MapView() {
       {nogl && <div class="nogl"><div><img src={nogl} alt="海の深さの図" /><p>この端末では地球儀を表示できません</p></div></div>}
     </div>
   );
+}
+
+/** 2点を結ぶ大円の真ん中（経度・緯度） */
+function midLonLat(lon1: number, lat1: number, lon2: number, lat2: number) {
+  const r = Math.PI / 180;
+  const v = (lo: number, la: number) => [Math.cos(la * r) * Math.cos(lo * r), Math.cos(la * r) * Math.sin(lo * r), Math.sin(la * r)];
+  const a = v(lon1, lat1), b = v(lon2, lat2);
+  const x = a[0] + b[0], y = a[1] + b[1], z = a[2] + b[2];
+  return { lon: Math.atan2(y, x) / r, lat: Math.atan2(z, Math.hypot(x, y)) / r };
 }
 
 // 描き直しは1フレームに1回まで
@@ -144,6 +186,7 @@ export function MapOverlay() {
           <span class="ds-n"><span>200m</span><span>3000m</span><span>6000m</span></span>
         </button>
       )}
+      {enhanced.value ? (ff ? <FocusCard /> : <Balance />) : (
       <div class="summary neon" aria-live="polite" data-testid="summary">
         <div class="sum-main"><span class="k">ぜんぶ</span><b data-testid="total">{s.total}</b></div>
         <div class="sum-split">
@@ -152,6 +195,7 @@ export function MapOverlay() {
           <div class="bar" aria-hidden="true"><i style={{ width: s.total ? `${(s.domestic / s.total) * 100}%` : '0%' }} /></div>
         </div>
       </div>
+      )}
       <button class="fab" aria-label="魚と産地を入力" onClick={() => (sheet.value = 'add')} data-testid="fab"><G.plus /><span>入力</span></button>
     </>
   );
