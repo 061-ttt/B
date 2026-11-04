@@ -555,8 +555,9 @@ html.fx .intro-art img { transform-origin: 50% 80%; cursor: pointer; }
 
 /* 広い画面：右のパネルにかからない位置へ */
 @media (min-width: 1024px) and (min-aspect-ratio: 5/4) {
-  .balance { bottom: 22px; left: 16px; }
-  .focus-card { left: 16px; right: auto; width: min(520px, calc(100% - var(--dw) - 200px)); bottom: 22px; }
+  /* 画面を切りかえるボタン（下の真ん中）にかからない幅と高さ */
+  .balance { bottom: 22px; left: 16px; width: 188px; --L: 58px; }
+  .focus-card { left: 16px; right: auto; width: min(520px, calc(100% - var(--dw) - 200px)); bottom: 104px; }
   .arrival { left: calc((100% - var(--dw)) / 2); }
 }
 @media (prefers-reduced-motion: reduce) {
