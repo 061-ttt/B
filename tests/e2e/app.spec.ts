@@ -654,3 +654,80 @@ test('18. この端末だけで使うときも、リセットするまで残る'
   await ready(page);
   await expect(page.getByTestId('total')).toHaveText('0');
 });
+
+test('19. 先生のQRコードを読み取った人は、全員が同じクラスに入る（読み直さなくても次からそのクラス）', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const opts = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
+  const pause = (p: Page, on: boolean) => p.evaluate((on) => (window as unknown as { __sm: { scene: { setActive(on: boolean): void } } }).__sm.scene.setActive(on), on);
+  const T = await (await browser.newContext(opts)).newPage();
+  await T.goto('/');
+  await ready(T);
+  // クラスがない間は、クラスにつながらない「アプリを開くだけのQRコード」は出さない
+  await T.getByTestId('room-btn').click();
+  await expect(T.locator('.app-qr')).toHaveCount(0);
+  await expect(T.getByTestId('room-sheet')).toContainText('全員が同じクラスに入ります');
+  await T.getByTestId('create-room').click();
+  const big = T.getByTestId('qr-big');
+  await expect(big).toBeVisible();
+  await T.getByTestId('qr-big-svg').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  const code = (await big.locator('.code').textContent())!.trim();
+  const png = await T.getByTestId('qr-big-svg').screenshot();
+  const { PNG } = await import('pngjs');
+  const jsQR = (await import('jsqr')).default;
+  const img = PNG.sync.read(png);
+  const url = jsQR(new Uint8ClampedArray(img.data), img.width, img.height)!.data;
+  expect(url).toContain(`room=${code}`);
+  await T.keyboard.press('Escape');
+  await pause(T, false);
+  // 2人がQRコードのリンクを開く
+  const kids: Page[] = [];
+  for (const [fish, place] of [['さば', '銚子'], ['さけ', '北海道']]) {
+    const S = await (await browser.newContext(opts)).newPage();
+    await S.goto(url);
+    await expect(S.getByTestId('toast')).toContainText(`クラス ${code} に入りました`, { timeout: 30_000 });
+    await ready(S);
+    await expect(S.getByTestId('room-btn')).toContainText(code);
+    await addEntry(S, fish, place);
+    await pause(S, false);
+    kids.push(S);
+  }
+  // 先生の地球儀に2人分が集まる
+  await pause(T, true);
+  await expect(T.getByTestId('total')).toHaveText('2', { timeout: 10_000 });
+  // 1人目がQRコードを使わずにアプリを開き直しても、同じクラスのまま
+  await pause(T, false);
+  const A = kids[0];
+  await A.goto('/');
+  await ready(A);
+  await expect(A.getByTestId('room-btn')).toContainText(code);
+  await expect(A.getByTestId('total')).toHaveText('2');
+  for (const p of [T, ...kids]) await p.context().close();
+});
+
+test('20. PCなど広い画面では、図鑑やシートを右側に出し、地球儀を見ながら使える', async ({ browser }) => {
+  const P = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })).newPage();
+  const errs: string[] = [];
+  P.on('pageerror', (e) => errs.push(e.message));
+  await P.goto('/');
+  await ready(P);
+  await expect(P.locator('html')).toHaveClass(/wide/);
+  await P.locator('[data-tab=zukan]').click();
+  const panel = P.locator('section.panel.on');
+  await expect(panel).toBeVisible();
+  await expect.poll(async () => (await panel.boundingBox())!.x, { timeout: 5000 }).toBeGreaterThan(900);
+  // 地球儀はぼかさず、上の操作や入力ボタンもパネルにかくれない
+  await expect(P.getByTestId('map')).not.toHaveClass(/under/);
+  await expect(P.getByTestId('view-japan')).toBeVisible();
+  const pb = (await panel.boundingBox())!;
+  await expect.poll(async () => { const f = (await P.getByTestId('fab').boundingBox())!; return f.x + f.width; }).toBeLessThan(pb.x);
+  // 入力は画面の真ん中の窓
+  await P.getByTestId('fab').click();
+  const sh = P.getByTestId('add-sheet');
+  await expect(sh).toHaveClass(/(^|\s)on(\s|$)/);
+  await expect.poll(async () => { const b = (await sh.boundingBox())!; return Math.abs(b.x + b.width / 2 - 720) + Math.abs(b.y + b.height / 2 - 450); }, { timeout: 5000 }).toBeLessThan(40);
+  await P.keyboard.press('Escape');
+  // 横スクロールは出ない
+  expect(await P.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+  expect(errs).toEqual([]);
+  await P.context().close();
+});

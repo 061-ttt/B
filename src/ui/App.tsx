@@ -1,4 +1,5 @@
-import { mode, room, sheet, tab, toast, view, type Tab } from '../state';
+import { effect } from '@preact/signals';
+import { mode, room, sheet, tab, toast, view, wide, type Tab } from '../state';
 import { MapOverlay, MapView, globe } from './MapView';
 import { Sheets, SegThumb } from './Sheets';
 import { Zukan } from './Zukan';
@@ -13,15 +14,23 @@ const TABS: { id: Tab; label: string; icon: () => preact.JSX.Element }[] = [
   { id: 'sheet', label: 'シート', icon: G.pen },
 ];
 
+// いまのタブと画面の広さを <html> に書いておく（CSS で並べ方を変えるため）
+effect(() => {
+  document.documentElement.dataset.screen = tab.value;
+  document.documentElement.classList.toggle('wide', wide.value);
+});
+
 export function App() {
+  // 広い画面では、図鑑やシートを開いても地球儀とその操作はそのまま使える
+  const showMap = tab.value === 'map' || wide.value;
   return (
     <>
       <MapView />
-      {tab.value === 'map' && <MapTop />}
-      {tab.value === 'map' && <MapOverlay />}
+      {showMap && <MapTop />}
+      {showMap && <MapOverlay />}
       <Zukan />
       <Worksheet />
-      {tab.value !== 'map' && <><div class="fade-top" aria-hidden="true" /><div class="fade-bottom" aria-hidden="true" /></>}
+      {tab.value !== 'map' && !wide.value && <><div class="fade-top" aria-hidden="true" /><div class="fade-bottom" aria-hidden="true" /></>}
       <TabBar />
       <Sheets />
       <QrBig />

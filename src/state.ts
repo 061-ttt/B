@@ -25,12 +25,21 @@ effect(() => ls.set('sm.layers', layers.value));
 export const sheet = signal<null | 'add' | 'room' | 'legend' | { pin: string }>(null);
 export const ready = signal(false);
 
+// ── 画面の広さ ──
+// PC・横向きのタブレットなど広い画面では、図鑑やシートを右側に出して地球儀を見ながら使えるようにする
+const WIDE_Q = '(min-width: 1024px) and (min-aspect-ratio: 5/4)';
+const mq = typeof matchMedia === 'function' ? matchMedia(WIDE_Q) : null;
+export const wide = signal(!!mq?.matches);
+mq?.addEventListener?.('change', (e) => { wide.value = e.matches; });
+/** 右側に出す図鑑・シートの幅（px）。CSS の --drawer と同じ計算 */
+export function drawerWidth() { return Math.round(Math.min(480, innerWidth * 0.4)); }
+
 export const toast = signal<{ text: string; action?: { label: string; run: () => void }; id: number } | null>(null);
 let toastTimer = 0;
-export function showToast(text: string, action?: { label: string; run: () => void }) {
+export function showToast(text: string, action?: { label: string; run: () => void }, ms?: number) {
   clearTimeout(toastTimer);
   toast.value = { text, action, id: Date.now() };
-  toastTimer = window.setTimeout(() => (toast.value = null), action ? 5000 : 2600);
+  toastTimer = window.setTimeout(() => (toast.value = null), ms ?? (action ? 5000 : 2600));
 }
 
 // ── クラス（ルーム）とデータ ──

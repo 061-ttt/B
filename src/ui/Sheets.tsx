@@ -243,7 +243,7 @@ function RoomForm() {
             {st === 'live' ? `つながっています（${presence.value}台）` : st === 'connecting' ? 'つないでいます…' : 'オフライン：この端末に保存し、つながったら送ります'}
           </p>
           <button class="qr" dangerouslySetInnerHTML={{ __html: qr }} aria-label="参加用のQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: room.value })} data-testid="room-qr" />
-          <p class="hint" style={{ textAlign: 'center' }}>QRコードを読み取るか、コードを入力して参加</p>
+          <p class="hint" style={{ textAlign: 'center' }}>このQRコードを読み取った人は、全員がこのクラスに入ります（コードの入力でも参加できます）</p>
           <div class="room-acts">
             <button class="btn primary" onClick={() => (bigQr.value = { code: room.value })} data-testid="qr-big-btn"><G.qr />QRを大きく表示</button>
             <button class="btn" onClick={() => { navigator.clipboard?.writeText(url).then(() => showToast('リンクをコピーしました'), () => showToast(url)); }}>リンクをコピー</button>
@@ -270,15 +270,12 @@ function RoomForm() {
           </div>
           <div style={{ height: '16px' }} />
           <button class="btn block" disabled={busy || serverOk.value === false} onClick={async () => { setBusy(true); const c = await createRoom(); setBusy(false); if (c) bigQr.value = { code: c }; }} data-testid="create-room">
-            {busy ? 'つくっています…' : '先生：クラスをつくる（QRコードが出ます）'}
+            {busy ? 'つくっています…' : '先生：クラスをつくってQRコードを出す'}
           </button>
+          {!STANDALONE && <p class="hint" style={{ textAlign: 'center' }}>出てきたQRコードを読み取った人は、全員が同じクラスに入ります</p>}
           {STANDALONE ? (
-            <p class="hint" data-testid="go-app">この画面はお試し用の版で、データはこの端末だけに保存されます。クラスで共有するときは、{APP_URL ? <><a href={APP_URL} target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 800 }}>本番のアプリ</a>を開いてください（下のQRコードでも開けます）。</> : '先生から聞いた本番のアプリのアドレスを開いてください。'}</p>
+            <p class="hint" data-testid="go-app">この画面はお試し用の版で、データはこの端末だけに保存されます。クラスで共有するときは、先生が{APP_URL ? <a href={APP_URL} target="_blank" rel="noopener" style={{ color: 'var(--cyan)', fontWeight: 800 }}>本番のアプリ</a> : '本番のアプリ'}を開いて「クラスをつくってQRコードを出す」を押し、そのQRコードをみんなで読み取ってください。</p>
           ) : serverOk.value === false && <p class="hint">サーバーにつながらないため、この端末だけで使えます。</p>}
-          <div class="app-qr">
-            <button class="qr small" dangerouslySetInnerHTML={{ __html: qr }} aria-label="このアプリのQRコード（タップで大きく）" onClick={() => (bigQr.value = { code: null })} />
-            <p class="hint">このアプリを開くQRコード。タップで大きく表示</p>
-          </div>
           <p class="hint">名前などの個人情報は集めません。データは、リセットするまで残ります。</p>
           <div class="reset-box">
             <ResetButton testid="reset-local" label="この端末のデータをリセット"

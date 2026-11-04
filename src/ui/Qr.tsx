@@ -57,7 +57,7 @@ export function QrBig() {
         <div class="qr-big-code" dangerouslySetInnerHTML={{ __html: svg }} data-testid="qr-big-svg" />
         {b.code ? (
           <>
-            <p class="qr-big-label">カメラで読み取るか、コードを入力して参加</p>
+            <p class="qr-big-label">カメラで読み取ると、全員がこのクラスに入ります（コードを入力しても参加できます）</p>
             <div class="code">{b.code}</div>
           </>
         ) : <p class="qr-big-label">カメラで読み取ると、このアプリが開きます</p>}

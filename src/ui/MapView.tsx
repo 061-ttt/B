@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { computed } from '@preact/signals';
 import type { Globe, GlobeData } from '../map/globe';
 import { aggregate, matches, stats, type FilterId, type Pin } from '../core/model';
-import { entries, filter, focusFish, lastAdded, layers, ready, sheet, tab, view } from '../state';
+import { drawerWidth, entries, filter, focusFish, lastAdded, layers, ready, sheet, tab, view, wide } from '../state';
 import { FISH_BY_ID } from '../data/fish';
 import { PLACE_BY_ID } from '../data/places';
 import { G } from './Glyph';
@@ -64,7 +64,20 @@ export function MapView() {
   }), []);
 
   useEffect(() => layers.subscribe((l) => globe?.setLayers(l)), []);
-  useEffect(() => tab.subscribe((t) => globe?.setActive(t === 'map')), []);
+  // 狭い画面では、図鑑やシートを開いている間は地球儀を止める（CPUを使わない）。
+  // 広い画面では地球儀を出したまま、右側の図鑑・シートの分だけ地球儀の中心を左へずらす
+  useEffect(() => {
+    const apply = () => {
+      const g = globe;
+      if (!g) return;
+      const t = tab.peek(), w = wide.peek();
+      g.setActive(t === 'map' || w);
+      g.setInset(w && t !== 'map' ? drawerWidth() : 0);
+    };
+    const un = [tab.subscribe(apply), wide.subscribe(apply), ready.subscribe(apply)];
+    addEventListener('resize', apply);
+    return () => { un.forEach((u) => u()); removeEventListener('resize', apply); };
+  }, []);
 
   // 新しい入力 → その場所へ飛ぶ
   useEffect(() => lastAdded.subscribe((e) => {
@@ -76,7 +89,7 @@ export function MapView() {
   }), []);
 
   return (
-    <div class={`map-wrap ${tab.value !== 'map' ? 'under' : ''}`} ref={host} data-testid="map">
+    <div class={`map-wrap ${tab.value !== 'map' && !wide.value ? 'under' : ''}`} ref={host} data-testid="map">
       {nogl && <div class="nogl"><div><img src={nogl} alt="海の深さの図" /><p>この端末では地球儀を表示できません</p></div></div>}
     </div>
   );

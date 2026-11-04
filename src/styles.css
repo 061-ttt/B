@@ -282,6 +282,7 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
   transform: translateY(calc(100% + 40px)); transition: transform .55s var(--spring); }
 .bsheet.on { transform: translateY(var(--drag, 0px)); }
 .bsheet.dragging { transition: none; }
+.bsheet-x { display: none; }
 .grab { width: 40px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .3); margin: 4px auto 10px; }
 .bsheet h3 { margin: 0 0 12px; font-size: 21px; font-weight: 800; }
 .field-l { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--ink); margin: 16px 2px 8px; }
@@ -367,6 +368,35 @@ button.qr { border: 0; cursor: zoom-in; }
   .tabbar { left: 50%; right: auto; width: 420px; translate: -50% 0; }
   .topbar { left: 50%; right: auto; width: min(640px, calc(100% - 24px)); translate: -50% 0; }
 }
+/* ── 広い画面（PC・横向きのタブレット）：地球儀を出したまま、図鑑・シートを右側に並べる ── */
+@media (min-width: 1024px) and (min-aspect-ratio: 5/4) {
+  :root { --drawer: min(480px, 40vw); --dw: 0px; }
+  html[data-screen=zukan], html[data-screen=sheet] { --dw: var(--drawer); }
+  /* 右側のパネル */
+  .panel { left: auto; right: 0; width: var(--drawer); padding: calc(var(--top) + 6px) 18px 28px;
+    background: linear-gradient(180deg, rgba(8, 12, 24, .9), rgba(3, 5, 12, .94)); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+    border-left: 1.5px solid rgba(62, 230, 255, .35); box-shadow: -10px 0 40px rgba(0, 0, 0, .45), inset 1px 0 0 rgba(255, 255, 255, .06);
+    transform: translateX(40px); }
+  .panel.on { transform: none; }
+  /* 地球儀の上の操作は、パネルにかくれない所へ */
+  .topbar { left: 16px; right: calc(var(--dw) + 16px); width: auto; translate: none; transition: right .45s var(--spring); }
+  .chips { left: 4px; right: var(--dw); transition: right .45s var(--spring); }
+  .fab { right: calc(var(--dw) + 18px); transition: right .45s var(--spring), transform .35s var(--spring); }
+  .summary, .fab { bottom: 22px; }
+  .depth-scale { left: 16px; }
+  /* 画面を切りかえるボタンは、地球儀の見えている部分の下の真ん中 */
+  .tabbar { left: calc((100% - var(--dw)) / 2); width: 380px; translate: -50% 0; transition: left .45s var(--spring); }
+  .toast { left: calc((100% - var(--dw)) / 2); bottom: 100px; }
+  /* 入力・クラス・凡例などは、画面の真ん中に出す小さな窓 */
+  /* （translate と transform を同じ規則に書くと CSS の圧縮で translate が消えるため、別の規則に分ける） */
+  html.wide .bsheet, html .bsheet[role] { translate: none; }
+  html .bsheet { inset: 0; margin: auto; width: min(520px, calc(100% - 48px)); height: fit-content; max-height: min(88dvh, 860px); padding-top: 18px;
+    opacity: 0; visibility: hidden; transform: translateY(24px) scale(.97); transition: transform .45s var(--spring), opacity .25s, visibility 0s .45s; }
+  html .bsheet.on { opacity: 1; visibility: visible; transform: none; transition: transform .45s var(--spring), opacity .25s, visibility 0s; }
+  .bsheet .grab { display: none; }
+  .bsheet-x { display: grid; place-items: center; position: absolute; top: 12px; right: 12px; z-index: 2; width: 36px; height: 36px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .15); background: rgba(255, 255, 255, .06); color: var(--sub); font-size: 22px; line-height: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
@@ -410,6 +440,23 @@ button.qr { border: 0; cursor: zoom-in; }
 .step-s { margin: -6px 0 0; font-size: 11px; font-weight: 700; color: var(--sub); line-height: 1.35; }
 .intro-cta { display: grid; gap: 10px; margin-top: 6px; }
 .intro-credit { margin: 0; text-align: center; font-size: 10px; color: var(--faint); }
+
+/* はじめに：広い画面では横に広げ、見出しを大きく */
+@media (min-width: 1024px) {
+  .intro-in { max-width: 1040px; padding-left: 40px; padding-right: 40px; gap: 18px; }
+  .intro-hero { grid-template-columns: 1fr minmax(0, 46%); min-height: 380px; }
+  .intro-title { font-size: clamp(72px, 7.5vw, 104px); }
+  .intro-eyebrow { font-size: 20px; }
+  .intro-sub { font-size: 16px; }
+  .intro-art img { width: 120%; right: 0; }
+  .intro-badge p { font-size: 22px; }
+  .intro-steps { gap: 16px; }
+  .step { padding: 12px 10px 14px; border-radius: 20px; }
+  .step-h .num { width: 28px; height: 28px; font-size: 12px; }
+  .step-t { font-size: 17px; }
+  .step-s { font-size: 13px; }
+  .intro-cta { grid-template-columns: 1fr 1fr; max-width: 720px; width: 100%; justify-self: center; }
+}
 
 /* 図鑑・シートの見出しの3DCG */
 .ph { position: relative; min-height: 64px; align-items: center; }

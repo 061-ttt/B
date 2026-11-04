@@ -44,6 +44,7 @@ export function BottomSheet({ open, onClose, children, label, testid }: { open: 
       <div class={`backdrop ${open ? 'on' : ''}`} onClick={onClose} />
       <div ref={ref} class={`bsheet glass strong ${open ? 'on' : ''}`} role="dialog" aria-modal="true" aria-label={label} aria-hidden={!open} data-testid={testid} inert={!open}>
         <div class="grab" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{ touchAction: 'none', padding: '8px 0', margin: '-4px auto 6px', backgroundClip: 'content-box', height: '21px' }} />
+        <button class="bsheet-x" onClick={onClose} aria-label="閉じる">×</button>
         {(open || mounted) && children}
       </div>
     </>

@@ -180,11 +180,27 @@ export class Globe {
     document.addEventListener('visibilitychange', () => this.setActive(!document.hidden && this.active));
   }
 
+  private inset = 0;
+  /** 画面の右側を図鑑などでふさぐとき、その幅（px）。地球儀の中心を残りの部分の真ん中へずらす */
+  setInset(px: number) {
+    px = Math.max(0, Math.round(px));
+    if (px === this.inset) return;
+    this.inset = px;
+    this.resize();
+  }
   private resize() {
     const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
-    this.camera.fov = w / h < 1 ? 58 : 42;
+    const vis = Math.max(1, w - this.inset);   // 地球儀が見えている部分の幅
+    this.camera.fov = vis / h < 1 ? 58 : 42;
+    if (this.inset) {
+      // 横に inset だけ広い仮の画面を考え、その左から inset ずらした所を表示する → 中心が左へ inset/2 動く
+      this.camera.aspect = (w + this.inset) / h;
+      this.camera.setViewOffset(w + this.inset, h, this.inset, 0, w, h);
+    } else {
+      this.camera.clearViewOffset();
+      this.camera.aspect = w / h;
+    }
     this.camera.updateProjectionMatrix();
   }
 
@@ -340,11 +356,17 @@ export class Globe {
 
   /** 日本がちょうど入る距離 */
   japanDistance() {
-    const hfov = 2 * Math.atan(Math.tan((this.camera.fov * RAD) / 2) * this.camera.aspect);
-    const half = Math.min(12.5, 14 / Math.max(1, this.camera.aspect)) * RAD * R;
-    return R + Math.max(28, half / Math.tan(hfov / 2));
+    // 日本（東西におよそ±12.5度、南北におよそ±9.5度）が、見えている部分にちょうど入る距離。
+    // 縦長のスマホでは横の幅で、横長のPCやタブレットでは縦の高さで決まる
+    const h = this.host.clientHeight || 1;
+    const aspect = Math.max(0.2, ((this.host.clientWidth || 1) - this.inset) / h);
+    const vfov = this.camera.fov * RAD;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
+    const byW = (12.5 * RAD * R) / Math.tan(hfov / 2);
+    const byH = (9.5 * RAD * R) / Math.tan(vfov / 2);
+    return R + Math.max(28, byW, byH);
   }
-  worldDistance() { return this.camera.aspect < 1 ? R * 4.3 : R * 2.8; }
+  worldDistance() { return ((this.host.clientWidth || 1) - this.inset) / (this.host.clientHeight || 1) < 1 ? R * 4.3 : R * 2.8; }
 
   private tween: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t0: number; dur: number; bump: number } | null = null;
   flyTo(lon: number, lat: number, dist?: number, dur = 1500) {
