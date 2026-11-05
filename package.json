@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "deploy": "npm run build && wrangler deploy",
-    "test:load": "node tests/load/realtime.mjs 60 3"
+    "test:load": "node tests/load/realtime.mjs 60 3",
+    "build:gas": "node scripts/build-gas.mjs",
+    "test:gas": "node tests/gas/sync-check.mjs"
   },
   "license": "MIT",
   "dependencies": {

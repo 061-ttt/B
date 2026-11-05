@@ -4,6 +4,7 @@ import qrcode from 'qrcode-generator';
 import { joinRoom } from '../core/sync';
 import { showToast } from '../state';
 import { G } from './Glyph';
+import { GAS } from '../core/gas';
 
 export function qrSvg(text: string): string {
   const q = qrcode(0, 'M');
@@ -19,6 +20,8 @@ export const APP_URL = ((import.meta.env.VITE_APP_URL as string | undefined) ?? 
 export const STANDALONE = (import.meta.env.VITE_STANDALONE as string | undefined) === '1' || location.protocol === 'file:';
 
 export function joinUrl(code: string | null): string {
+  // Apps Script 版は、ウェブアプリのアドレス（…/exec?room=○○）。読み取るとそのままクラスに入る
+  if (GAS) { const g = new URL(GAS.url); if (code) g.searchParams.set('room', code); return g.toString(); }
   const u = STANDALONE && APP_URL ? new URL(APP_URL) : new URL(location.pathname, location.origin);
   if (code) u.searchParams.set('room', code);
   return u.toString();

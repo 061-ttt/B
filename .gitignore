@@ -7,3 +7,4 @@ playwright-report/
 *.log
 dist-standalone/
 __pycache__/
+dist-gas/

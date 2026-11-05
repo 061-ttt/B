@@ -124,7 +124,8 @@ function AddForm() {
   }
 
   return (
-    <div>
+    <div class="add-form">
+      <div class="af-a">
       <h3><span class="em">魚</span>と産地を入力</h3>
       <label class="field-l" for="tag"><span class="num" style={{ '--n': 'var(--violet)' }}>01</span>値札の文字をそのまま（なくてもOK）</label>
       <div class="inp-row">
@@ -175,6 +176,8 @@ function AddForm() {
       {placeQ && !place && placeList.length === 0 && <p class="hint">見つからないときは、県の名前や国の名前で入れてみよう。</p>}
       {place && <p class="hint ok-line" data-testid="place-ok">✓ {place.name}（{place.kind === 'country' ? '外国' : place.domestic ? '国内' : '遠くの海'}）</p>}
 
+      </div>
+      <div class="af-b">
       <label class="field-l"><span class="num" style={{ '--n': 'var(--amber)' }}>04</span>とり方</label>
       <div class="seg glass" style={{ display: 'flex' }}>
         <SegThumb idx={['wild', 'farmed', 'unknown'].indexOf(method)} n={3} />
@@ -201,6 +204,7 @@ function AddForm() {
       {fx
         ? <ThrowCard can={can} fish={fish} fishName={fishName} place={place} onThrow={submit} />
         : <button class="btn primary block" disabled={!can} onClick={submit} data-testid="submit">地図にのせる</button>}
+      </div>
     </div>
   );
 }

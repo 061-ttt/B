@@ -1,6 +1,7 @@
 import { signal, effect, batch, computed } from '@preact/signals';
 import type { Entry, FilterId, ViewId } from './core/model';
 import { uid } from './core/model';
+import { GAS } from './core/gas';
 
 // ── 永続化の小道具 ──
 const ls = {
@@ -44,7 +45,7 @@ export function showToast(text: string, action?: { label: string; run: () => voi
 
 // ── クラス（ルーム）とデータ ──
 const params = new URLSearchParams(location.search);
-export const room = signal<string | null>((params.get('room') || ls.get<string | null>('sm.room', null))?.toUpperCase() ?? null);
+export const room = signal<string | null>((params.get('room') || GAS?.room || ls.get<string | null>('sm.room', null))?.toUpperCase() ?? null);
 // 先生のかぎはクラスごとに持つ（ほかのクラスに参加したときに取り違えない）。以前の版の1つだけのかぎは引きつぐ
 export const teacherKeys = signal<Record<string, string>>((() => {
   const m = ls.get<Record<string, string>>('sm.teacherKeys', {});

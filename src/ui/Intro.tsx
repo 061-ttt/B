@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import hero from '../assets/art/hero.webp';
 import step1 from '../assets/art/step1.webp';
 import step2 from '../assets/art/step2.webp';
@@ -27,11 +28,43 @@ const STEPS = [
   { no: '04', n: 'var(--green)', t: 'なぜ？を考える', s: '次に調べたいことへ', img: step4 },
 ];
 
+/** 案内画面を、枠の高さにスクロールなしで収める（Googleサイトなどに埋めこんだ低い枠でも全体が見える） */
+function useFit(ref: { current: HTMLElement | null }, on: boolean) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!on || !el) return;
+    const box = el.parentElement!;
+    let raf = 0;
+    const fit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        el.style.zoom = '';
+        // 枠（.intro）のはみ出し分だけ縮める。縮めたあとにまだはみ出していれば、もう一度だけ詰める
+        let z = 1;
+        for (let k = 0; k < 3 && box.scrollHeight > box.clientHeight + 1; k++) {
+          z = Math.max(0.42, z * (box.clientHeight / box.scrollHeight) * 0.99);
+          el.style.zoom = String(z);
+        }
+      });
+    };
+    fit();
+    // 画像や書体が後から入って高さが変わることがあるので、少しあとにも測り直す
+    const later = [setTimeout(fit, 300), setTimeout(fit, 1200)];
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    el.querySelectorAll('img').forEach((im) => { if (!im.complete) im.addEventListener('load', fit, { once: true }); });
+    document.fonts?.ready.then(fit).catch(() => { /* */ });
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); later.forEach(clearTimeout); };
+  }, [on]);
+}
+
 export function Intro() {
+  const ref = useRef<HTMLDivElement>(null);
+  useFit(ref, intro.value);
   if (!intro.value) return null;
   return (
     <section class="intro" role="dialog" aria-modal="true" aria-label="はじめに" data-testid="intro">
-      <div class="intro-in">
+      <div class="intro-in" ref={ref}>
         <div class="intro-top">
           <span class="intro-chip">小5 社会</span>
           <button class="intro-skip" onClick={closeIntro} aria-label="閉じる"><G.x /></button>

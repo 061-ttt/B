@@ -2,7 +2,7 @@ import { render } from 'preact';
 import './styles.css';
 
 // 丸ゴシックと数字用の書体（端末に保存。1ファイル版は Google Fonts から読む）
-if (import.meta.env.VITE_STANDALONE !== '1') {
+if (import.meta.env.VITE_SINGLE !== '1' && import.meta.env.VITE_STANDALONE !== '1') {
   import('@fontsource/m-plus-rounded-1c/500.css');
   import('@fontsource/m-plus-rounded-1c/800.css');
   import('@fontsource/outfit/600.css');
@@ -12,6 +12,7 @@ if (import.meta.env.VITE_STANDALONE !== '1') {
 import { App } from './ui/App';
 import { ready, room, entries, worksheet, view, filter, tab, mode, showToast, teacherKey } from './state';
 import { checkServer, joinRoom } from './core/sync';
+import { GAS } from './core/gas';
 
 render(<App />, document.getElementById('app')!);
 
@@ -26,7 +27,7 @@ ready.subscribe((r) => {
 setTimeout(() => { ready.value = true; }, 10000);
 
 // QRコード（?room=コード）から開いた人は、そのクラスに入る。入れたら知らせる
-const fromQr = new URLSearchParams(location.search).get('room');
+const fromQr = new URLSearchParams(location.search).get('room') || GAS?.room;
 checkServer().then(async () => {
   if (!room.value) return;
   await joinRoom(room.value);
