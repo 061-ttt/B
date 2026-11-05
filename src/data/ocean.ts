@@ -125,11 +125,3 @@ export const SEA_LABELS: { name: string; at: LonLat; view: 'japan' | 'world'; si
   { name: '大西洋', at: [323.0, 28.0], view: 'world', size: 1.2 },
   { name: 'インド洋', at: [80.0, -20.0], view: 'world', size: 1.2 },
 ];
-
-/** 日本の主な漁場（教科書・地図帳で扱われる範囲の目安）。日本を見ているときだけ小さく出す */
-export const FISHING_GROUNDS: { name: string; at: LonLat; note: string }[] = [
-  { name: '道東沖', at: [146.0, 42.4], note: '親潮が運ぶ栄養で、さんま・たら・さけなど' },
-  { name: '三陸沖', at: [143.5, 40.9], note: '潮目ができ、さんま・かつお・いわしなど多くの魚が集まる' },
-  { name: '大和堆', at: [135.2, 39.75], note: '日本海の浅い所。いかの好漁場' },
-  { name: '東シナ海の大陸棚', at: [126.6, 31.0], note: '広い大陸棚。底びき網・まき網' },
-];

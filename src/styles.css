@@ -79,10 +79,6 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .trench-label { color: rgba(190, 180, 255, .75); font-size: 10px; font-weight: 800; white-space: nowrap; translate: -50% -50%; transition: opacity .3s; text-shadow: 0 1px 4px #000; display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
 .trench-label small { font-size: 8.5px; font-weight: 700; color: rgba(190, 180, 255, .6); }
 /* 主な漁場：小さな名札（点線の輪＝漁場） */
-.ground-label { display: flex; align-items: center; gap: 3px; translate: -50% -50%; white-space: nowrap; font-size: 9.5px; font-weight: 800; color: #ffe2a3; padding: 1px 6px 1px 3px; border-radius: 8px; background: rgba(40, 26, 0, .5); border: 1px solid rgba(255, 196, 77, .35); text-shadow: 0 1px 3px #000; transition: opacity .3s; }
-.legend-ground { width: 74px; display: flex; justify-content: center; flex: none; }
-.legend-ground .ground-label { translate: none; }
-.ground-label i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px dashed var(--amber); box-shadow: 0 0 5px rgba(255, 196, 77, .6); }
 .current-label { font-size: 11px; font-weight: 800; white-space: nowrap; translate: -50% -50%; padding: 4px 9px 4px 7px; border-radius: 11px; background: rgba(4, 8, 18, .72); border: 1px solid rgba(255, 255, 255, .12); display: flex; align-items: center; gap: 5px; transition: opacity .3s; }
 .current-label.warm { color: #ffc2c8; border-color: rgba(255, 74, 92, .45); box-shadow: 0 0 10px rgba(255, 74, 92, .25); }
 .current-label.cold { color: #b5dcff; border-color: rgba(58, 168, 255, .45); box-shadow: 0 0 10px rgba(58, 168, 255, .25); }
@@ -133,13 +129,6 @@ ruby rt { font-size: .5em; opacity: .8; letter-spacing: 0; }
 .chips { position: fixed; z-index: 29; left: 0; right: 0; top: calc(var(--top) + 52px); display: flex; gap: 8px; overflow-x: auto; padding: 2px 12px 10px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 /* 地図の上に小さく出す、海の深さの色の見方 */
-.depth-scale { position: fixed; z-index: 28; left: 12px; top: calc(var(--top) + 104px); width: 176px; padding: 6px 9px 5px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .1); display: grid; gap: 3px; text-align: left; color: #fff; }
-.ds-t { font-size: 10px; font-weight: 800; color: var(--sub); }
-.ds-bar { display: grid; grid-template-columns: repeat(4, 1fr); height: 9px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15); }
-.ds-bar i:first-child { box-shadow: inset -1.5px 0 0 #c8faff; }
-.ds-l { display: grid; grid-template-columns: repeat(4, 1fr); font-size: 9.5px; font-weight: 800; text-align: center; }
-.ds-n { display: grid; grid-template-columns: repeat(4, 1fr); font: 700 8px/1 var(--num); color: var(--sub); }
-.ds-n span { translate: 50% 0; text-align: center; }
 .chip { flex: none; height: 36px; padding: 0 15px; border-radius: 18px; border: 1px solid rgba(170, 205, 255, .2); background: rgba(10, 14, 26, .7); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; transition: transform .35s var(--spring), background .25s, color .25s, box-shadow .25s; }
 .chip:active { transform: scale(.92); }
 .chip[aria-pressed="true"] { background: linear-gradient(180deg, #8ff6ff, var(--cyan)); color: #02131a; border-color: transparent; box-shadow: 0 0 16px rgba(62, 230, 255, .55); }
@@ -383,7 +372,6 @@ button.qr { border: 0; cursor: zoom-in; }
   .chips { left: 4px; right: var(--dw); transition: right .45s var(--spring); }
   .fab { right: calc(var(--dw) + 18px); transition: right .45s var(--spring), transform .35s var(--spring); }
   .summary, .fab { bottom: 22px; }
-  .depth-scale { left: 16px; }
   /* 画面を切りかえるボタンは、地球儀の見えている部分の下の真ん中 */
   .tabbar { left: calc((100% - var(--dw)) / 2); width: 380px; translate: -50% 0; transition: left .45s var(--spring); }
   .toast { left: calc((100% - var(--dw)) / 2); bottom: 100px; }
@@ -608,13 +596,11 @@ html.fx .intro-art img { transform-origin: 50% 80%; cursor: pointer; }
   .fc-fig { width: 48px; height: 42px; }
   .fc-why { font-size: 13px; margin-top: 2px; }
   .fc-acts { margin-top: 4px; }
-  .depth-scale { transform: scale(.82); transform-origin: 0 0; top: calc(var(--top) + 98px); }
   .arr-name { font-size: clamp(30px, 11vh, 64px); }
   .arr-km b { font-size: clamp(28px, 8vh, 46px); }
   .toast { bottom: calc(var(--tabbar) + 64px); }
 }
 @media (max-height: 460px) {
-  .depth-scale { display: none; }
   .chips { top: calc(var(--top) + 48px); }
   .chip { height: 32px; }
   .topbar .icon-btn { height: 38px; min-width: 38px; }

@@ -85,22 +85,16 @@ test('3. 地球儀・海流アニメーション・潮目・深さ・端がな�
   await expect(page.locator('.current-label.warm', { hasText: '黒潮' })).toBeAttached();
   await expect(page.locator('.current-label.cold', { hasText: '親潮' })).toBeAttached();
   await expect(page.locator('.current-label.meet').first()).toBeAttached();
-  // 日本の主な漁場（4つ）が、ほかの名前と重ならずに出ている
-  await expect(page.locator('.ground-label')).toHaveCount(4);
-  await expect.poll(() => page.locator('.ground-label:not(.hid)').count(), { timeout: 8000 }).toBe(4);
-  for (const n of ['三陸沖', '大和堆', '東シナ海の大陸棚']) await expect(page.locator('.ground-label', { hasText: n })).toBeVisible();
-  // 地図の上に、海の深さの色の見方（4段）
-  await expect(page.getByTestId('depth-scale')).toContainText('大陸棚');
-  await expect(page.getByTestId('depth-scale').locator('.ds-bar i')).toHaveCount(4);
+  // 日本の主な漁場の名札と、地図の上の海の深さの表は出さない（ご要望で削除）
+  await expect(page.locator('.ground-label')).toHaveCount(0);
+  await expect(page.getByTestId('depth-scale')).toHaveCount(0);
   // 凡例と表示切りかえ
   await page.getByTestId('legend-btn').click();
-  await expect(page.getByTestId('legend-sheet')).toContainText('漁場');
   await expect(page.getByTestId('legend-sheet')).toContainText('大陸棚');
   await expect(page.getByTestId('legend-sheet')).toContainText('海溝');
   await page.getByTestId('layer-depth').click();
-  await expect(page.getByTestId('depth-scale')).toHaveCount(0);
+  await expect(page.getByTestId('layer-depth')).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('layer-depth').click();
-  await expect(page.getByTestId('depth-scale')).toBeVisible();
   await page.getByTestId('layer-currents').click();
   await expect(page.getByTestId('layer-currents')).toHaveAttribute('aria-checked', 'false');
   await page.getByTestId('layer-currents').click();

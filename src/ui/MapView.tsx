@@ -7,7 +7,6 @@ import { Balance, FocusCard } from './Fx';
 import { FISH_BY_ID } from '../data/fish';
 import { JAPAN_POINT, PLACE_BY_ID } from '../data/places';
 import { G } from './Glyph';
-import { DEPTH_LEGEND } from '../map/depth';
 
 const loadData = async (): Promise<GlobeData> => {
   const [g, p] = await Promise.all([import('../data/land-globe.json'), import('../data/land-jpatch.json')]);
@@ -178,14 +177,6 @@ export function MapOverlay() {
           </button>
         ))}
       </div>
-      {layers.value.depth && (
-        <button class="depth-scale glass" onClick={() => (sheet.value = 'legend')} aria-label="海の深さの色の見方（タップでくわしく）" data-testid="depth-scale">
-          <span class="ds-t">海の深さ</span>
-          <span class="ds-bar">{DEPTH_LEGEND.map((d) => <i key={d.label} style={{ background: d.color }} />)}</span>
-          <span class="ds-l">{DEPTH_LEGEND.map((d) => <span key={d.label}>{d.label === '深い海' ? '深海' : d.label === '大陸斜面' ? '斜面' : d.label}</span>)}</span>
-          <span class="ds-n"><span>200m</span><span>3000m</span><span>6000m</span></span>
-        </button>
-      )}
       {enhanced.value ? (ff ? <FocusCard /> : <Balance />) : (
       <div class="summary neon" aria-live="polite" data-testid="summary">
         <div class="sum-main"><span class="k">ぜんぶ</span><b data-testid="total">{s.total}</b></div>
